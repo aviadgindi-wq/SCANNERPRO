@@ -379,9 +379,29 @@ def render_verification_chart(selected_row, selected_tf, show_mas):
         )
 
         # Unlock axis ranges for interactive scrolling
-        if len(df) > 40:
-            # Zoom into the most recent 40 bars for a normal candlestick scale
-            fig.update_xaxes(fixedrange=False, range=[df.index[-40], df.index[-1]])
+        if not df.empty:
+            end_time = df.index[-1]
+
+            if selected_tf == "1d":
+                # Daily: show last 60 days
+                zoom_start = end_time - pd.Timedelta(days=60)
+            elif selected_tf == "15m":
+                # 15m: show last 48 hours
+                zoom_start = end_time - pd.Timedelta(hours=48)
+            elif selected_tf == "1wk":
+                zoom_start = df.index[0]
+            else:
+                # Default zoom: last 3 trading days
+                unique_dates = df.index.normalize().unique()
+                if len(unique_dates) >= 3:
+                    zoom_start = unique_dates[-3]
+                else:
+                    zoom_start = df.index[0]
+
+            if zoom_start < df.index[0]:
+                zoom_start = df.index[0]
+
+            fig.update_xaxes(fixedrange=False, range=[zoom_start, end_time])
         else:
             fig.update_xaxes(fixedrange=False)
 

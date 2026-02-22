@@ -4,3 +4,6 @@ plotly
 yfinance
 requests
 lxml
+fastapi
+uvicorn
+pydantic
