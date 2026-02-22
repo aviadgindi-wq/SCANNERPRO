@@ -1,11 +1,14 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import yfinance as yf
 import datetime
 import pandas as pd
 import numpy as np
+import os
 
 from scanner import (
     find_3_leg_fibo_short,
@@ -14,6 +17,31 @@ from scanner import (
 )
 
 app = FastAPI(title="Scanner PRO API")
+
+# ── Serve React static files from FONTEND/dist ──────────────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Try both folder names — "FONTEND" (as uploaded to GitHub) and "frontend" (local dev)
+_candidates = [
+    os.path.join(BASE_DIR, "FONTEND", "dist"),
+    os.path.join(BASE_DIR, "frontend", "dist"),
+]
+FRONTEND_DIR = None
+for _candidate in _candidates:
+    if os.path.isdir(_candidate):
+        FRONTEND_DIR = _candidate
+        break
+
+if FRONTEND_DIR is None:
+    FRONTEND_DIR = os.path.join(BASE_DIR, "FONTEND", "dist")  # default for Render
+    print(f"[WARNING] No dist folder found. Expected at: {_candidates}")
+else:
+    print(f"[OK] Serving static files from: {FRONTEND_DIR}")
+
+# Mount /assets for JS/CSS bundles
+assets_dir = os.path.join(FRONTEND_DIR, "assets")
+if os.path.isdir(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 # Enable CORS for React frontend
 app.add_middleware(
@@ -320,7 +348,7 @@ def get_chart(
     )
 
 
-# Keep legacy /scan endpoint for backwards compatibility
+# Keep legacy /scan endpoint — always returns full Fibo + Zig-Zag data
 @app.get("/scan")
 def scan_ticker(ticker: str = Query(...)):
     return get_chart(ticker=ticker, interval="1d", strategy="fibo")
@@ -423,6 +451,19 @@ def run_scan_endpoint():
         return {"status": "ok", "message": "Scan complete"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Catch-all: serve React index.html for SPA routing ────────────────
+@app.get("/{full_path:path}")
+async def serve_react_app(full_path: str):
+    """Serve the React SPA for any unmatched route."""
+    file_path = os.path.join(FRONTEND_DIR, full_path)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+    index = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.isfile(index):
+        return FileResponse(index)
+    raise HTTPException(status_code=404, detail="Not Found")
 
 
 if __name__ == "__main__":
