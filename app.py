@@ -191,67 +191,131 @@ def render_verification_chart(selected_row, selected_tf, show_mas):
                         else selected_row.get("Leg2_Price")
                     )
 
-                    # Draw the Zig-Zag
+                    # Draw the Zig-Zag (3 Legs)
                     fig.add_trace(
                         go.Scatter(
                             x=[swing_low_date, swing_high_date, leg2_date],
                             y=[swing_low_price, swing_high_price, leg2_price],
-                            mode="lines+markers",
-                            line=dict(color="magenta", width=3),
-                            marker=dict(size=8, color="black"),
-                            name="Fibo Zig-Zag",
+                            mode="lines+markers+text",
+                            line=dict(color="magenta", width=4),
+                            marker=dict(size=10, color="magenta", symbol="circle"),
+                            text=["Swing Low", "Swing High", "Leg 2"],
+                            textposition="top center",
+                            name="3-Leg Fibo",
                         )
                     )
 
                     # Calculate and draw exact Fibo levels
                     fibo_range = swing_high_price - swing_low_price
                     if fibo_range > 0:
+                        # 0 Level
                         fig.add_hline(
                             y=swing_high_price,
-                            line_dash="solid",
-                            line_color="red",
-                            annotation_text="Level 0 (Stop)",
+                            line_dash="dash",
+                            line_color="rgba(255,255,255,0.4)",
+                            annotation_text="0",
+                            annotation_position="top left",
                         )
+                        # 0.382 Level
                         fig.add_hline(
                             y=swing_high_price - (0.382 * fibo_range),
-                            line_dash="dot",
-                            line_color="orange",
+                            line_dash="dash",
+                            line_color="rgba(255,255,255,0.4)",
                             annotation_text="0.382",
+                            annotation_position="top left",
                         )
+                        # 0.5 Level
                         fig.add_hline(
                             y=swing_high_price - (0.500 * fibo_range),
-                            line_dash="dot",
-                            line_color="gray",
+                            line_dash="dash",
+                            line_color="rgba(255,255,255,0.4)",
                             annotation_text="0.5",
+                            annotation_position="top left",
                         )
+                        # 0.618 Level (Highlighted Entry Point)
                         fig.add_hline(
                             y=swing_high_price - (0.618 * fibo_range),
                             line_dash="solid",
                             line_color="cyan",
-                            annotation_text="0.618 (Entry)",
+                            annotation_text="Fibo Entry Point (0.618)",
+                            annotation_font_color="cyan",
+                            annotation_position="top left",
                         )
+                        # 1.0 Level
                         fig.add_hline(
                             y=swing_low_price,
-                            line_dash="solid",
-                            line_color="green",
-                            annotation_text="Level 1",
+                            line_dash="dash",
+                            line_color="rgba(255,255,255,0.4)",
+                            annotation_text="1.0",
+                            annotation_position="bottom left",
                         )
+
+                        # Shaded Area between 0.382 and 0.618
                         fig.add_hrect(
                             y0=swing_high_price - (0.382 * fibo_range),
                             y1=swing_high_price - (0.618 * fibo_range),
                             fillcolor="yellow",
                             opacity=0.15,
+                            layer="below",
                         )
+
+                        # Add literal Stop & Target from DataFrame for complete context
+                        if pd.notna(stop_loss) and float(stop_loss) > 0:
+                            fig.add_hline(
+                                y=float(stop_loss),
+                                line_dash="solid",
+                                line_color="red",
+                                annotation_text=f"Stop: {float(stop_loss):.2f}",
+                                annotation_font_color="red",
+                                annotation_position="bottom left",
+                            )
+                        if pd.notna(target) and float(target) > 0:
+                            fig.add_hline(
+                                y=float(target),
+                                line_dash="solid",
+                                line_color="green",
+                                annotation_text=f"Target: {float(target):.2f}",
+                                annotation_font_color="green",
+                                annotation_position="top left",
+                            )
+
                 except Exception as e:
                     import streamlit as st
 
-                    st.warning(f"Could not draw Fibo Zig-Zag: {e}")
+                    st.warning(
+                        f"Warning: Missing or invalid Fibo coordinates. Plotting standard levels instead. ({e})"
+                    )
+                    # Fallback on exception
+                    if pd.notna(entry) and float(entry) > 0:
+                        fig.add_hline(
+                            y=float(entry),
+                            line_dash="dash",
+                            line_color="cyan",
+                            annotation_text=f"Entry: {float(entry):.2f}",
+                            annotation_position="top left",
+                        )
+                    if pd.notna(stop_loss) and float(stop_loss) > 0:
+                        fig.add_hline(
+                            y=float(stop_loss),
+                            line_dash="solid",
+                            line_color="red",
+                            annotation_text=f"Stop: {float(stop_loss):.2f}",
+                            annotation_position="bottom left",
+                        )
+                    if pd.notna(target) and float(target) > 0:
+                        fig.add_hline(
+                            y=float(target),
+                            line_dash="solid",
+                            line_color="green",
+                            annotation_text=f"Target: {float(target):.2f}",
+                            annotation_position="top left",
+                        )
             else:
-                # Fallback: Just draw the regular lines if Fibo columns are missing
+                # Fallback: Just draw the regular lines if Fibo columns are missing or N/A
                 import streamlit as st
 
                 st.info(
-                    "Fibo coordinates not found in this scan. Please run 'Market Scan' again to generate them. Showing standard entry/stop lines."
+                    "Fibo coordinates not found or marked N/A. Showing standard entry/stop lines."
                 )
                 if pd.notna(entry) and float(entry) > 0:
                     fig.add_hline(
@@ -311,7 +375,17 @@ def render_verification_chart(selected_row, selected_tf, show_mas):
             margin=dict(l=20, r=20, t=30, b=20),
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
+            dragmode="pan",  # Enable panning by default instead of zooming
         )
+
+        # Unlock axis ranges for interactive scrolling
+        if len(df) > 40:
+            # Zoom into the most recent 40 bars for a normal candlestick scale
+            fig.update_xaxes(fixedrange=False, range=[df.index[-40], df.index[-1]])
+        else:
+            fig.update_xaxes(fixedrange=False)
+
+        fig.update_yaxes(fixedrange=False)
         return fig
     except Exception as e:
         return go.Figure().update_layout(
