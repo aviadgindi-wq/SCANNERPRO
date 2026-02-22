@@ -25,6 +25,7 @@ function App() {
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [scanning, setScanning] = useState(false);
 
     // Fetch chart data
     const fetchChart = async (symbol, intv, strat) => {
@@ -74,6 +75,20 @@ function App() {
         setSearchInput(t);
     };
 
+    // Run full market scanner
+    const runScanner = async () => {
+        setScanning(true);
+        try {
+            await axios.post(`${API_BASE}/run-scan`);
+            // Refresh results table after scan
+            await fetchResults(strategy);
+        } catch (err) {
+            console.error('Scanner error:', err);
+        } finally {
+            setScanning(false);
+        }
+    };
+
     return (
         <div className="app-container">
             <header className="header">
@@ -88,6 +103,14 @@ function App() {
                         placeholder="Ticker"
                     />
                     <button type="submit">Scan</button>
+                    <button
+                        type="button"
+                        className="run-scanner-btn"
+                        onClick={runScanner}
+                        disabled={scanning}
+                    >
+                        {scanning ? '⏳ Scanning...' : '🔍 Run Scanner'}
+                    </button>
                 </form>
             </header>
 
