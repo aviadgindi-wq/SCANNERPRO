@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, Filter, ChevronUp, ChevronDown, ChevronRight, Minimize2, Maximize2 } from 'lucide-react';
 
 const STATUS_COLORS = {
     'Active': { bg: 'rgba(0, 255, 136, 0.12)', border: 'rgba(0, 255, 136, 0.3)' },
@@ -21,6 +21,7 @@ const ScannerTable = ({ results, selectedTicker, onSelectTicker }) => {
     const [typeFilter, setTypeFilter] = useState('all');
     const [sortCol, setSortCol] = useState(null);
     const [sortDir, setSortDir] = useState('asc');
+    const [collapsed, setCollapsed] = useState(false);
 
     const { rows = [], columns = [] } = results || {};
 
@@ -58,12 +59,10 @@ const ScannerTable = ({ results, selectedTicker, onSelectTicker }) => {
         if (sortCol) {
             result = [...result].sort((a, b) => {
                 let va = a[sortCol], vb = b[sortCol];
-                // Try numeric
                 const na = parseFloat(va), nb = parseFloat(vb);
                 if (!isNaN(na) && !isNaN(nb)) {
                     return sortDir === 'asc' ? na - nb : nb - na;
                 }
-                // String sort
                 va = String(va || ''); vb = String(vb || '');
                 return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
             });
@@ -81,7 +80,6 @@ const ScannerTable = ({ results, selectedTicker, onSelectTicker }) => {
         }
     };
 
-    // Pretty column names
     const colLabel = (col) => {
         const map = {
             Signal_Status: 'Signal',
@@ -104,80 +102,103 @@ const ScannerTable = ({ results, selectedTicker, onSelectTicker }) => {
     if (!rows || rows.length === 0) {
         return (
             <div className="scanner-table-empty">
-                No scan results yet. Run a scan first.
+                No scan results yet. Click 🔍 Run Scanner to scan the market.
             </div>
         );
     }
 
     return (
-        <div className="scanner-table-container">
-            {/* Filters Row */}
-            <div className="table-filters">
-                <div className="filter-search">
-                    <Search size={14} />
-                    <input
-                        type="text"
-                        placeholder="Search ticker..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+        <div className={`scanner-table-container ${collapsed ? 'collapsed' : ''}`}>
+            {/* Collapsed bar */}
+            {collapsed ? (
+                <div className="table-collapsed-bar" onClick={() => setCollapsed(false)}>
+                    <ChevronRight size={14} />
+                    <span>Scanner Results</span>
+                    <span className="collapsed-count">{filteredRows.length} results</span>
+                    {selectedTicker && (
+                        <span className="collapsed-selected">📌 {selectedTicker}</span>
+                    )}
+                    <Maximize2 size={13} className="collapse-icon" />
                 </div>
+            ) : (
+                <>
+                    {/* Filters Row */}
+                    <div className="table-filters">
+                        <div className="filter-search">
+                            <Search size={14} />
+                            <input
+                                type="text"
+                                placeholder="Search ticker..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
 
-                <div className="filter-group">
-                    <Filter size={12} />
-                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                        <option value="all">All Signals</option>
-                        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                </div>
+                        <div className="filter-group">
+                            <Filter size={12} />
+                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                                <option value="all">All Signals</option>
+                                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
 
-                <div className="filter-group">
-                    <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                        <option value="all">All Types</option>
-                        {types.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                </div>
+                        <div className="filter-group">
+                            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                                <option value="all">All Types</option>
+                                {types.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                        </div>
 
-                <span className="result-count">{filteredRows.length} results</span>
-            </div>
+                        <span className="result-count">{filteredRows.length} results</span>
 
-            {/* Table */}
-            <div className="table-scroll">
-                <table className="scanner-table">
-                    <thead>
-                        <tr>
-                            {columns.map(col => (
-                                <th key={col} onClick={() => handleSort(col)}>
-                                    <span>{colLabel(col)}</span>
-                                    {sortCol === col && (
-                                        sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
-                                    )}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredRows.map((row, i) => {
-                            const statusStyle = getStatusStyle(row.Signal_Status);
-                            const isSelected = row.Ticker === selectedTicker;
-                            return (
-                                <tr
-                                    key={`${row.Ticker}-${i}`}
-                                    className={isSelected ? 'selected' : ''}
-                                    style={{ backgroundColor: statusStyle.bg || 'transparent' }}
-                                    onClick={() => onSelectTicker(row.Ticker)}
-                                >
+                        <button
+                            className="collapse-btn"
+                            onClick={() => setCollapsed(true)}
+                            title="Minimize table"
+                        >
+                            <Minimize2 size={14} />
+                        </button>
+                    </div>
+
+                    {/* Table */}
+                    <div className="table-scroll">
+                        <table className="scanner-table">
+                            <thead>
+                                <tr>
                                     {columns.map(col => (
-                                        <td key={col} className={col === 'Ticker' ? 'ticker-cell' : ''}>
-                                            {formatCell(col, row[col])}
-                                        </td>
+                                        <th key={col} onClick={() => handleSort(col)}>
+                                            <span>{colLabel(col)}</span>
+                                            {sortCol === col && (
+                                                sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                                            )}
+                                        </th>
                                     ))}
                                 </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+                            </thead>
+                            <tbody>
+                                {filteredRows.map((row, i) => {
+                                    const statusStyle = getStatusStyle(row.Signal_Status);
+                                    const isSelected = row.Ticker === selectedTicker;
+                                    return (
+                                        <tr
+                                            key={`${row.Ticker}-${i}`}
+                                            className={isSelected ? 'selected' : ''}
+                                            style={{ backgroundColor: statusStyle.bg || 'transparent' }}
+                                            onClick={() => onSelectTicker(row.Ticker)}
+                                        >
+                                            {columns.map(col => (
+                                                <td key={col} className={col === 'Ticker' ? 'ticker-cell' : ''}>
+                                                    {formatCell(col, row[col])}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+            )}
         </div>
     );
 };
