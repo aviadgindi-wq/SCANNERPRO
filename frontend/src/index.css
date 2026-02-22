@@ -93,6 +93,29 @@ body {
   background: #2ea043;
 }
 
+.run-scanner-btn {
+  background: #da6e27 !important;
+  padding: 0.35rem 0.9rem;
+  border-radius: 4px;
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.2s, opacity 0.2s;
+  white-space: nowrap;
+}
+
+.run-scanner-btn:hover {
+  background: #e67e22 !important;
+}
+
+.run-scanner-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
 /* ─── Toolbar ───────────────────────────────────────────────────── */
 .toolbar {
   display: flex;
@@ -361,4 +384,61 @@ body {
 .ticker-cell {
   font-weight: 700;
   color: #58a6ff;
+}
+
+/* ─── Table Collapse ────────────────────────────────────────────── */
+.scanner-table-container.collapsed {
+  max-height: none;
+}
+
+.table-collapsed-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  color: #8b949e;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.table-collapsed-bar:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #c9d1d9;
+}
+
+.collapsed-count {
+  color: #58a6ff;
+  font-weight: 600;
+}
+
+.collapsed-selected {
+  margin-left: auto;
+  color: #e6edf3;
+  font-weight: 600;
+}
+
+.collapse-icon {
+  margin-left: 0.5rem;
+  opacity: 0.5;
+}
+
+.collapse-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #8b949e;
+  padding: 0.2rem 0.35rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.15s;
+}
+
+.collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #c9d1d9;
+  border-color: #58a6ff;
 }
