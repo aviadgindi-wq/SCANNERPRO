@@ -21,27 +21,21 @@ app = FastAPI(title="Scanner PRO API")
 # ── Serve React static files from FONTEND/dist ──────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Try both folder names — "FONTEND" (as uploaded to GitHub) and "frontend" (local dev)
-_candidates = [
-    os.path.join(BASE_DIR, "FONTEND", "dist"),
-    os.path.join(BASE_DIR, "frontend", "dist"),
-]
-FRONTEND_DIR = None
-for _candidate in _candidates:
-    if os.path.isdir(_candidate):
-        FRONTEND_DIR = _candidate
-        break
-
-if FRONTEND_DIR is None:
-    FRONTEND_DIR = os.path.join(BASE_DIR, "FONTEND", "dist")  # default for Render
-    print(f"[WARNING] No dist folder found. Expected at: {_candidates}")
+# Primary: FONTEND/dist (Render / GitHub)  Fallback: frontend/dist (local dev)
+if os.path.isdir(os.path.join(BASE_DIR, "FONTEND", "dist")):
+    FRONTEND_DIR = os.path.join(BASE_DIR, "FONTEND", "dist")
+elif os.path.isdir(os.path.join(BASE_DIR, "frontend", "dist")):
+    FRONTEND_DIR = os.path.join(BASE_DIR, "frontend", "dist")
 else:
-    print(f"[OK] Serving static files from: {FRONTEND_DIR}")
+    FRONTEND_DIR = os.path.join(BASE_DIR, "FONTEND", "dist")
 
 # Mount /assets for JS/CSS bundles
-assets_dir = os.path.join(FRONTEND_DIR, "assets")
-if os.path.isdir(assets_dir):
-    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+if os.path.isdir(os.path.join(FRONTEND_DIR, "assets")):
+    app.mount(
+        "/assets",
+        StaticFiles(directory=os.path.join(FRONTEND_DIR, "assets")),
+        name="assets",
+    )
 
 # Enable CORS for React frontend
 app.add_middleware(
@@ -457,13 +451,12 @@ def run_scan_endpoint():
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):
     """Serve the React SPA for any unmatched route."""
+    # Try to serve the exact file from FONTEND/dist
     file_path = os.path.join(FRONTEND_DIR, full_path)
-    if os.path.isfile(file_path):
+    if full_path and os.path.isfile(file_path):
         return FileResponse(file_path)
-    index = os.path.join(FRONTEND_DIR, "index.html")
-    if os.path.isfile(index):
-        return FileResponse(index)
-    raise HTTPException(status_code=404, detail="Not Found")
+    # Otherwise, always return index.html (SPA routing)
+    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
 
 if __name__ == "__main__":
