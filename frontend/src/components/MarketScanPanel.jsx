@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Radar, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
+// Dynamic API URL: localhost for dev, Render URL for production
+const API_BASE = window.location.hostname === 'localhost'
+    ? 'http://127.0.0.1:8000'
+    : 'https://scannerpro.onrender.com';
 
 const STRATEGIES = [
     { value: 'all', label: '🌐 All Strategies' },
@@ -78,7 +81,7 @@ const MarketScanPanel = ({ onSelectTicker, visible, onToggle }) => {
                 {loading ? (
                     <><Loader size={14} className="spin-icon" /> Scanning Top 50...</>
                 ) : (
-                    <><Radar size={14} /> Scan Market</>
+                    <><Radar size={14} /> START MARKET SCAN</>
                 )}
             </button>
 

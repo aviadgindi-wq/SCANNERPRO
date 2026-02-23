@@ -37,6 +37,18 @@ if os.path.isdir(os.path.join(FRONTEND_DIR, "assets")):
         name="assets",
     )
 
+# Startup diagnostics
+print(f"[BOOT] FRONTEND_DIR = {FRONTEND_DIR}", flush=True)
+print(f"[BOOT] Exists: {os.path.isdir(FRONTEND_DIR)}", flush=True)
+if os.path.isdir(FRONTEND_DIR):
+    for f in os.listdir(FRONTEND_DIR):
+        full = os.path.join(FRONTEND_DIR, f)
+        if os.path.isdir(full):
+            for sub in os.listdir(full):
+                print(f"[BOOT]   {f}/{sub}", flush=True)
+        else:
+            print(f"[BOOT]   {f}", flush=True)
+
 # Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,

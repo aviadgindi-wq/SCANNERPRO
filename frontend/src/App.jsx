@@ -6,7 +6,10 @@ import ScannerTable from './components/ScannerTable';
 import MarketScanPanel from './components/MarketScanPanel';
 import './index.css';
 
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
+// Dynamic API URL: localhost for dev, Render URL for production
+const API_BASE = window.location.hostname === 'localhost'
+    ? 'http://127.0.0.1:8000'
+    : 'https://scannerpro.onrender.com';
 
 const STRATEGY_MAP = {
     'none': 'qullamaggie',
@@ -17,7 +20,6 @@ const STRATEGY_MAP = {
 
 function App() {
     const [ticker, setTicker] = useState('AAPL');
-    const [searchInput, setSearchInput] = useState('AAPL');
     const [interval, setIntervalState] = useState('1d');
     const [chartType, setChartType] = useState('candlestick');
     const [strategy, setStrategy] = useState('none');
@@ -29,7 +31,7 @@ function App() {
     const [scanning, setScanning] = useState(false);
     const [scanMsg, setScanMsg] = useState('');
     const [tableCollapsed, setTableCollapsed] = useState(false);
-    const [sidebarVisible, setSidebarVisible] = useState(false);
+    const [sidebarVisible, setSidebarVisible] = useState(true);
     const pollRef = useRef(null);
 
     const fetchChart = async (symbol, intv, strat) => {
@@ -81,12 +83,7 @@ function App() {
         return () => { if (pollRef.current) clearInterval(pollRef.current); };
     }, [scanning]);
 
-    const handleSearch = (e) => {
-        e.preventDefault();
-        if (searchInput.trim()) setTicker(searchInput.trim().toUpperCase());
-    };
-
-    const handleSelectTicker = (t) => { setTicker(t); setSearchInput(t); };
+    const handleSelectTicker = (t) => { setTicker(t); };
 
     const runScanner = async () => {
         if (scanning) return;
@@ -101,18 +98,9 @@ function App() {
             <header className="header">
                 <div className="header-left">
                     <h1>PRO Scanner Terminal</h1>
+                    {scanMsg && <span className="scan-status-msg">{scanMsg}</span>}
                 </div>
                 <div className="header-right">
-                    {scanMsg && <span className="scan-status-msg">{scanMsg}</span>}
-                    <form className="controls" onSubmit={handleSearch}>
-                        <input
-                            type="text"
-                            value={searchInput}
-                            onChange={(e) => setSearchInput(e.target.value)}
-                            placeholder="Ticker"
-                        />
-                        <button type="submit">Scan</button>
-                    </form>
                     <button
                         className={`run-scanner-btn ${scanning ? 'scanning' : ''}`}
                         onClick={runScanner}
@@ -121,7 +109,7 @@ function App() {
                         {scanning ? <><span className="spinner"></span> Scanning...</> : '🔍 Full Scan'}
                     </button>
                     <button
-                        className="run-scanner-btn market"
+                        className={`run-scanner-btn market ${sidebarVisible ? 'active' : ''}`}
                         onClick={() => setSidebarVisible(v => !v)}
                     >
                         🎯 Market Scan
