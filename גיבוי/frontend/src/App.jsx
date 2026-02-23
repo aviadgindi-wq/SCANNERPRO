@@ -3,7 +3,6 @@ import axios from 'axios';
 import TradingChart from './components/TradingChart';
 import Toolbar from './components/Toolbar';
 import ScannerTable from './components/ScannerTable';
-import MarketScanPanel from './components/MarketScanPanel';
 import './index.css';
 
 const API_BASE = 'http://localhost:8000';
@@ -29,9 +28,9 @@ function App() {
     const [scanning, setScanning] = useState(false);
     const [scanMsg, setScanMsg] = useState('');
     const [tableCollapsed, setTableCollapsed] = useState(false);
-    const [sidebarVisible, setSidebarVisible] = useState(false);
     const pollRef = useRef(null);
 
+    // Fetch chart data
     const fetchChart = async (symbol, intv, strat) => {
         setLoading(true);
         setError(null);
@@ -48,6 +47,7 @@ function App() {
         }
     };
 
+    // Fetch scan results table
     const fetchResults = async (strat) => {
         try {
             const csvStrategy = STRATEGY_MAP[strat] || 'qullamaggie';
@@ -58,10 +58,15 @@ function App() {
         }
     };
 
-    useEffect(() => { fetchChart(ticker, interval, strategy); }, [ticker, interval, strategy]);
-    useEffect(() => { fetchResults(strategy); }, [strategy]);
+    useEffect(() => {
+        fetchChart(ticker, interval, strategy);
+    }, [ticker, interval, strategy]);
 
-    // Poll scan status for background full scan
+    useEffect(() => {
+        fetchResults(strategy);
+    }, [strategy]);
+
+    // Poll scan status
     useEffect(() => {
         if (scanning) {
             pollRef.current = setInterval(async () => {
@@ -70,7 +75,7 @@ function App() {
                     setScanMsg(res.data.message || '');
                     if (!res.data.running) {
                         setScanning(false);
-                        setScanMsg('✅ Complete!');
+                        setScanMsg('✅ Scan complete!');
                         clearInterval(pollRef.current);
                         fetchResults(strategy);
                         setTimeout(() => setScanMsg(''), 4000);
@@ -83,17 +88,28 @@ function App() {
 
     const handleSearch = (e) => {
         e.preventDefault();
-        if (searchInput.trim()) setTicker(searchInput.trim().toUpperCase());
+        if (searchInput.trim()) {
+            setTicker(searchInput.trim().toUpperCase());
+        }
     };
 
-    const handleSelectTicker = (t) => { setTicker(t); setSearchInput(t); };
+    const handleSelectTicker = (t) => {
+        setTicker(t);
+        setSearchInput(t);
+    };
 
+    // Run full market scanner (background)
     const runScanner = async () => {
         if (scanning) return;
         setScanning(true);
-        setScanMsg('⏳ Scanning...');
-        try { await axios.post(`${API_BASE}/run-scan`); }
-        catch { setScanning(false); setScanMsg('❌ Failed'); setTimeout(() => setScanMsg(''), 3000); }
+        setScanMsg('⏳ Starting market scan...');
+        try {
+            await axios.post(`${API_BASE}/run-scan`);
+        } catch (err) {
+            setScanning(false);
+            setScanMsg('❌ Failed to start scan');
+            setTimeout(() => setScanMsg(''), 3000);
+        }
     };
 
     return (
@@ -118,13 +134,11 @@ function App() {
                         onClick={runScanner}
                         disabled={scanning}
                     >
-                        {scanning ? <><span className="spinner"></span> Scanning...</> : '🔍 Full Scan'}
-                    </button>
-                    <button
-                        className="run-scanner-btn market"
-                        onClick={() => setSidebarVisible(v => !v)}
-                    >
-                        🎯 Market Scan
+                        {scanning ? (
+                            <><span className="spinner"></span> Scanning...</>
+                        ) : (
+                            '🔍 Run Market Scan'
+                        )}
                     </button>
                 </div>
             </header>
@@ -140,7 +154,7 @@ function App() {
                 setShowMAs={setShowMAs}
             />
 
-            {/* Scanner Results Table */}
+            {/* Scanner Results Table — collapsible */}
             <ScannerTable
                 results={results}
                 selectedTicker={ticker}
@@ -149,24 +163,16 @@ function App() {
                 onToggleCollapse={() => setTableCollapsed(c => !c)}
             />
 
-            {/* Chart + Sidebar */}
-            <div className="content-row">
-                <main className={`main-content ${tableCollapsed ? 'expanded' : ''}`}>
-                    <div className="chart-wrapper">
-                        {loading && <div className="loading">Loading {ticker}...</div>}
-                        {error && <div className="error">{error}</div>}
-                        {!loading && !error && chartData && (
-                            <TradingChart data={chartData} chartType={chartType} showMAs={showMAs} />
-                        )}
-                    </div>
-                </main>
-
-                <MarketScanPanel
-                    onSelectTicker={handleSelectTicker}
-                    visible={sidebarVisible}
-                    onToggle={() => setSidebarVisible(v => !v)}
-                />
-            </div>
+            {/* Chart Area — expands when table is collapsed */}
+            <main className={`main-content ${tableCollapsed ? 'expanded' : ''}`}>
+                <div className="chart-wrapper">
+                    {loading && <div className="loading">Loading {ticker}...</div>}
+                    {error && <div className="error">{error}</div>}
+                    {!loading && !error && chartData && (
+                        <TradingChart data={chartData} chartType={chartType} showMAs={showMAs} />
+                    )}
+                </div>
+            </main>
         </div>
     );
 }
