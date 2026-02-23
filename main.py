@@ -18,16 +18,16 @@ from scanner import (
 
 app = FastAPI(title="Scanner PRO API")
 
-# ── Serve React static files from FONTEND/dist ──────────────────────
+# ── Serve React static files from FRONTEND/dist ─────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Primary: FONTEND/dist (Render / GitHub)  Fallback: frontend/dist (local dev)
-if os.path.isdir(os.path.join(BASE_DIR, "FONTEND", "dist")):
-    FRONTEND_DIR = os.path.join(BASE_DIR, "FONTEND", "dist")
+# Primary: FRONTEND/dist (Render / GitHub)  Fallback: frontend/dist (local dev)
+if os.path.isdir(os.path.join(BASE_DIR, "FRONTEND", "dist")):
+    FRONTEND_DIR = os.path.join(BASE_DIR, "FRONTEND", "dist")
 elif os.path.isdir(os.path.join(BASE_DIR, "frontend", "dist")):
     FRONTEND_DIR = os.path.join(BASE_DIR, "frontend", "dist")
 else:
-    FRONTEND_DIR = os.path.join(BASE_DIR, "FONTEND", "dist")
+    FRONTEND_DIR = os.path.join(BASE_DIR, "FRONTEND", "dist")
 
 # Mount /assets for JS/CSS bundles
 if os.path.isdir(os.path.join(FRONTEND_DIR, "assets")):
