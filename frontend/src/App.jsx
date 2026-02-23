@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import TradingChart from './components/TradingChart';
 import Toolbar from './components/Toolbar';
@@ -26,6 +26,9 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [scanning, setScanning] = useState(false);
+    const [scanMsg, setScanMsg] = useState('');
+    const [tableCollapsed, setTableCollapsed] = useState(false);
+    const pollRef = useRef(null);
 
     // Fetch chart data
     const fetchChart = async (symbol, intv, strat) => {
@@ -63,6 +66,26 @@ function App() {
         fetchResults(strategy);
     }, [strategy]);
 
+    // Poll scan status
+    useEffect(() => {
+        if (scanning) {
+            pollRef.current = setInterval(async () => {
+                try {
+                    const res = await axios.get(`${API_BASE}/scan-status`);
+                    setScanMsg(res.data.message || '');
+                    if (!res.data.running) {
+                        setScanning(false);
+                        setScanMsg('✅ Scan complete!');
+                        clearInterval(pollRef.current);
+                        fetchResults(strategy);
+                        setTimeout(() => setScanMsg(''), 4000);
+                    }
+                } catch { /* ignore */ }
+            }, 2000);
+        }
+        return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    }, [scanning]);
+
     const handleSearch = (e) => {
         e.preventDefault();
         if (searchInput.trim()) {
@@ -75,17 +98,17 @@ function App() {
         setSearchInput(t);
     };
 
-    // Run full market scanner
+    // Run full market scanner (background)
     const runScanner = async () => {
+        if (scanning) return;
         setScanning(true);
+        setScanMsg('⏳ Starting market scan...');
         try {
             await axios.post(`${API_BASE}/run-scan`);
-            // Refresh results table after scan
-            await fetchResults(strategy);
         } catch (err) {
-            console.error('Scanner error:', err);
-        } finally {
             setScanning(false);
+            setScanMsg('❌ Failed to start scan');
+            setTimeout(() => setScanMsg(''), 3000);
         }
     };
 
@@ -95,23 +118,29 @@ function App() {
                 <div className="header-left">
                     <h1>PRO Scanner Terminal</h1>
                 </div>
-                <form className="controls" onSubmit={handleSearch}>
-                    <input
-                        type="text"
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                        placeholder="Ticker"
-                    />
-                    <button type="submit">Scan</button>
+                <div className="header-right">
+                    {scanMsg && <span className="scan-status-msg">{scanMsg}</span>}
+                    <form className="controls" onSubmit={handleSearch}>
+                        <input
+                            type="text"
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            placeholder="Ticker"
+                        />
+                        <button type="submit">Scan</button>
+                    </form>
                     <button
-                        type="button"
-                        className="run-scanner-btn"
+                        className={`run-scanner-btn ${scanning ? 'scanning' : ''}`}
                         onClick={runScanner}
                         disabled={scanning}
                     >
-                        {scanning ? '⏳ Scanning...' : '🔍 Run Scanner'}
+                        {scanning ? (
+                            <><span className="spinner"></span> Scanning...</>
+                        ) : (
+                            '🔍 Run Market Scan'
+                        )}
                     </button>
-                </form>
+                </div>
             </header>
 
             <Toolbar
@@ -125,15 +154,17 @@ function App() {
                 setShowMAs={setShowMAs}
             />
 
-            {/* Scanner Results Table */}
+            {/* Scanner Results Table — collapsible */}
             <ScannerTable
                 results={results}
                 selectedTicker={ticker}
                 onSelectTicker={handleSelectTicker}
+                collapsed={tableCollapsed}
+                onToggleCollapse={() => setTableCollapsed(c => !c)}
             />
 
-            {/* Chart Area */}
-            <main className="main-content">
+            {/* Chart Area — expands when table is collapsed */}
+            <main className={`main-content ${tableCollapsed ? 'expanded' : ''}`}>
                 <div className="chart-wrapper">
                     {loading && <div className="loading">Loading {ticker}...</div>}
                     {error && <div className="error">{error}</div>}

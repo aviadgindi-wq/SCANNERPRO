@@ -435,16 +435,136 @@ def get_results(strategy: str = Query("qullamaggie")):
 
 # ── Run Scanner Endpoint ────────────────────────────────────────────
 from scanner import run_scanner as _run_scanner
+import threading
+
+_scan_status = {"running": False, "message": "idle"}
 
 
 @app.post("/run-scan")
 def run_scan_endpoint():
-    """Trigger a full market scan."""
-    try:
-        _run_scanner()
-        return {"status": "ok", "message": "Scan complete"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Trigger a full market scan in background thread."""
+    if _scan_status["running"]:
+        return {"status": "running", "message": "Scan already in progress..."}
+
+    def _scan_worker():
+        _scan_status["running"] = True
+        _scan_status["message"] = "Scanning market..."
+        try:
+            _run_scanner()
+            _scan_status["message"] = "Scan complete"
+        except Exception as e:
+            _scan_status["message"] = f"Error: {str(e)}"
+        finally:
+            _scan_status["running"] = False
+
+    threading.Thread(target=_scan_worker, daemon=True).start()
+    return {"status": "started", "message": "Market scan started..."}
+
+
+@app.get("/scan-status")
+def scan_status():
+    return _scan_status
+
+
+# ── Quick Market Scan (Fibo only, top 50) ──────────────────────────
+
+TOP_50 = [
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "NVDA",
+    "META",
+    "TSLA",
+    "BRK-B",
+    "JPM",
+    "V",
+    "UNH",
+    "JNJ",
+    "WMT",
+    "XOM",
+    "MA",
+    "PG",
+    "HD",
+    "CVX",
+    "MRK",
+    "ABBV",
+    "COST",
+    "PEP",
+    "KO",
+    "AVGO",
+    "LLY",
+    "TMO",
+    "MCD",
+    "CSCO",
+    "ACN",
+    "ABT",
+    "DHR",
+    "CRM",
+    "NKE",
+    "TXN",
+    "CMCSA",
+    "NEE",
+    "PM",
+    "VZ",
+    "INTC",
+    "UPS",
+    "QCOM",
+    "AMD",
+    "LOW",
+    "BA",
+    "CAT",
+    "AMAT",
+    "SPGI",
+    "GS",
+    "ISRG",
+    "SYK",
+]
+
+
+@app.get("/scan-market")
+def scan_market():
+    """Quick scan: check top 50 tickers for active Fibonacci setups."""
+    results = []
+    for ticker in TOP_50:
+        try:
+            data = yf.download(ticker, period="1y", interval="1d", progress=False)
+            if data is None or data.empty or len(data) < 60:
+                continue
+
+            # Flatten MultiIndex if present
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = data.columns.get_level_values(0)
+
+            data = calculate_indicators(data)
+            fibo_result = find_3_leg_fibo_short(data)
+            if fibo_result and fibo_result[0] is not None:
+                entry, stop_loss, target = (
+                    fibo_result[0],
+                    fibo_result[1],
+                    fibo_result[2],
+                )
+                close = round(float(data["Close"].iloc[-1]), 2)
+                sr_type, sr_val = find_support_resistance(data)
+                results.append(
+                    {
+                        "ticker": ticker,
+                        "close": close,
+                        "entry": round(float(entry), 2) if entry else None,
+                        "stop_loss": round(float(stop_loss), 2) if stop_loss else None,
+                        "target": round(float(target), 2) if target else None,
+                        "support_resistance": f"{sr_type}: {sr_val}"
+                        if sr_type
+                        else None,
+                        "type": "LONG 📈"
+                        if entry and stop_loss and entry > stop_loss
+                        else "SHORT 📉",
+                    }
+                )
+        except Exception:
+            continue
+
+    return {"count": len(results), "results": results}
 
 
 # ── Catch-all: serve React index.html for SPA routing ────────────────

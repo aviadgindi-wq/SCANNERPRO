@@ -28,7 +28,6 @@ body {
   flex-direction: column;
 }
 
-/* ─── App Container ─────────────────────────────────────────────── */
 .app-container {
   display: flex;
   flex-direction: column;
@@ -36,15 +35,16 @@ body {
   width: 100%;
 }
 
-/* ─── Header ────────────────────────────────────────────────────── */
+/* ─── Header ──────────────────────────────────────────────────────── */
 .header {
-  padding: 0.6rem 1.2rem;
+  padding: 0.5rem 1.2rem;
   background: #161b22;
   border-bottom: 1px solid #30363d;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  gap: 1rem;
 }
 
 .header h1 {
@@ -52,6 +52,12 @@ body {
   font-weight: 700;
   color: #e6edf3;
   letter-spacing: -0.01em;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .controls {
@@ -67,7 +73,7 @@ body {
   color: #e6edf3;
   font-size: 0.85rem;
   font-family: 'Inter', sans-serif;
-  width: 120px;
+  width: 110px;
   outline: none;
   transition: border-color 0.2s;
 }
@@ -77,7 +83,7 @@ body {
 }
 
 .controls button {
-  padding: 0.35rem 0.9rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 4px;
   border: none;
   background: #238636;
@@ -93,30 +99,90 @@ body {
   background: #2ea043;
 }
 
+/* Run Scanner Button */
 .run-scanner-btn {
-  background: #da6e27 !important;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.35rem 0.9rem;
   border-radius: 4px;
   border: none;
+  background: #da6e27;
   color: #fff;
   font-weight: 600;
   font-size: 0.8rem;
   cursor: pointer;
   font-family: 'Inter', sans-serif;
-  transition: background 0.2s, opacity 0.2s;
+  transition: background 0.2s, opacity 0.2s, transform 0.15s;
   white-space: nowrap;
 }
 
 .run-scanner-btn:hover {
-  background: #e67e22 !important;
+  background: #e67e22;
+  transform: scale(1.02);
 }
 
 .run-scanner-btn:disabled {
-  opacity: 0.7;
+  opacity: 0.75;
   cursor: wait;
+  transform: none;
 }
 
-/* ─── Toolbar ───────────────────────────────────────────────────── */
+.run-scanner-btn.scanning {
+  animation: pulse-scan 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-scan {
+
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Spinner */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Scan status message */
+.scan-status-msg {
+  font-size: 0.75rem;
+  color: #8b949e;
+  padding: 0.2rem 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  white-space: nowrap;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* ─── Toolbar ─────────────────────────────────────────────────────── */
 .toolbar {
   display: flex;
   align-items: center;
@@ -218,11 +284,16 @@ body {
   color: #fff;
 }
 
-/* ─── Main Content ──────────────────────────────────────────────── */
+/* ─── Main Content ────────────────────────────────────────────────── */
 .main-content {
   flex: 1;
   display: flex;
   overflow: hidden;
+  transition: flex 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.main-content.expanded {
+  flex: 1;
 }
 
 .chart-wrapper {
@@ -246,14 +317,20 @@ body {
   color: #f85149;
 }
 
-/* ─── Scanner Table ─────────────────────────────────────────────── */
+/* ─── Scanner Table ───────────────────────────────────────────────── */
 .scanner-table-container {
   flex-shrink: 0;
   background: #161b22;
   border-bottom: 1px solid #30363d;
-  max-height: 240px;
   display: flex;
   flex-direction: column;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 280px;
+  overflow: hidden;
+}
+
+.scanner-table-container.collapsed {
+  max-height: 34px;
 }
 
 .scanner-table-empty {
@@ -265,6 +342,62 @@ body {
   text-align: center;
 }
 
+/* Toggle bar (always visible) */
+.table-collapsed-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  color: #8b949e;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  user-select: none;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+}
+
+.table-collapsed-bar:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #c9d1d9;
+}
+
+.collapsed-label {
+  font-weight: 600;
+}
+
+.collapsed-count {
+  color: #58a6ff;
+  font-weight: 600;
+}
+
+.collapsed-selected {
+  margin-left: auto;
+  color: #e6edf3;
+  font-weight: 600;
+}
+
+.collapse-icon {
+  margin-left: 0.5rem;
+  opacity: 0.4;
+}
+
+/* Slide-able body */
+.table-body-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  transition: opacity 0.3s ease;
+}
+
+.scanner-table-container.collapsed .table-body-wrapper {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Filters */
 .table-filters {
   display: flex;
   align-items: center;
@@ -325,6 +458,7 @@ body {
   flex: 1;
 }
 
+/* Table */
 .scanner-table {
   width: 100%;
   border-collapse: collapse;
@@ -384,61 +518,4 @@ body {
 .ticker-cell {
   font-weight: 700;
   color: #58a6ff;
-}
-
-/* ─── Table Collapse ────────────────────────────────────────────── */
-.scanner-table-container.collapsed {
-  max-height: none;
-}
-
-.table-collapsed-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 1rem;
-  cursor: pointer;
-  color: #8b949e;
-  font-size: 0.75rem;
-  font-weight: 500;
-  transition: background 0.15s;
-}
-
-.table-collapsed-bar:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: #c9d1d9;
-}
-
-.collapsed-count {
-  color: #58a6ff;
-  font-weight: 600;
-}
-
-.collapsed-selected {
-  margin-left: auto;
-  color: #e6edf3;
-  font-weight: 600;
-}
-
-.collapse-icon {
-  margin-left: 0.5rem;
-  opacity: 0.5;
-}
-
-.collapse-btn {
-  margin-left: auto;
-  background: transparent;
-  border: 1px solid #30363d;
-  border-radius: 4px;
-  color: #8b949e;
-  padding: 0.2rem 0.35rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: all 0.15s;
-}
-
-.collapse-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #c9d1d9;
-  border-color: #58a6ff;
 }
