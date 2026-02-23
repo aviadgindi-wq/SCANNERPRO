@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import TradingViewWidget from './components/TradingViewWidget';
+import ProChart from './components/ProChart';
 import ScannerTable from './components/ScannerTable';
 import './index.css';
 
@@ -22,7 +22,11 @@ function App() {
     const [ticker, setTicker] = useState('AAPL');
     const [searchInput, setSearchInput] = useState('');
     const [interval, setIntervalState] = useState('1d');
+    const [chartType, setChartType] = useState('candlestick');
+    const [chartData, setChartData] = useState(null);
     const [scanResults, setScanResults] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
     const [scanning, setScanning] = useState(false);
     const [scanMsg, setScanMsg] = useState('');
     const [scanStrategy, setScanStrategy] = useState('all');
@@ -30,6 +34,34 @@ function App() {
     const [tableMinimized, setTableMinimized] = useState(false);
     const [filterMarket, setFilterMarket] = useState('all');
     const [filterSignal, setFilterSignal] = useState('all');
+
+    // ── Load chart from backend (with overlays!) ──
+    const loadChart = async (symbol, intv) => {
+        const i = intv || interval;
+        setTicker(symbol);
+        setLoading(true);
+        setError(null);
+
+        // Map Futures to YF format for backend fetching
+        const mappedSymbols = {
+            'ES': 'ES=F', 'MES': 'MES=F',
+            'NQ': 'NQ=F', 'MNQ': 'MNQ=F',
+            'YM': 'YM=F', 'CL': 'CL=F', 'GC': 'GC=F'
+        };
+        const querySymbol = mappedSymbols[symbol.toUpperCase()] || symbol;
+
+        try {
+            const res = await axios.get(`${API_BASE}/chart?ticker=${querySymbol}&interval=${i}&strategy=fibo`);
+            setChartData(res.data);
+        } catch (err) {
+            setError(`Ticker ${symbol} not found`);
+            setChartData(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { loadChart(ticker, interval); }, [interval]);
 
     // ── Search-to-Analyze ──
     const handleSearch = async (e) => {
@@ -42,7 +74,7 @@ function App() {
             if (res.data.results?.length > 0) {
                 setScanResults(prev => [...res.data.results, ...prev.filter(r => r.ticker !== t)]);
             }
-            setTicker(t);
+            loadChart(t, interval);
         } catch (err) { console.error(err); }
         finally { setSearching(false); setSearchInput(''); }
     };
@@ -61,10 +93,10 @@ function App() {
         finally { setScanning(false); }
     };
 
-    // ── Row click → sync chart ──
-    const handleRowClick = (t) => { setTicker(t); };
+    // ── Row click → load chart with overlays ──
+    const handleRowClick = (t) => { loadChart(t, interval); };
 
-    // ── Filtered results ──
+    // ── Filter ──
     const filtered = scanResults.filter(r => {
         if (filterMarket !== 'all') {
             const isFuture = r.ticker.includes('=F');
@@ -91,7 +123,7 @@ function App() {
                     <form className="search-form" onSubmit={handleSearch}>
                         <input type="text" value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
-                            placeholder="Analyze ticker (e.g. ES=F)..." className="search-input"
+                            placeholder="Search ticker (ES=F, AAPL...)" className="search-input"
                             disabled={searching} />
                         <button type="submit" className="search-btn" disabled={searching}>
                             {searching ? '⏳' : '🔍'}
@@ -124,12 +156,34 @@ function App() {
 
             {/* ── 60/40 Dashboard ── */}
             <div className={`dashboard-layout ${tableMinimized ? 'table-hidden' : ''}`}>
-                {/* Chart Panel */}
                 <main className="chart-panel">
-                    <TradingViewWidget symbol={ticker} interval={interval} />
+                    <div className="chart-wrapper">
+                        {/* Render ProChart unconditionally to prevent iframe unmounting & black flashes */}
+                        <ProChart data={chartData} ticker={ticker} />
+
+                        {/* Overlay loading/error states on top of the chart */}
+                        {loading && (
+                            <div className="chart-loading-overlay" style={{
+                                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                background: 'rgba(19, 23, 34, 0.85)', zIndex: 10,
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff'
+                            }}>
+                                <div className="spinner" style={{ marginBottom: '15px', width: '40px', height: '40px', borderTopColor: '#26a69a' }}></div>
+                                <span style={{ fontSize: '16px', fontWeight: 'bold' }}>Loading {ticker}...</span>
+                            </div>
+                        )}
+                        {error && (
+                            <div className="chart-loading-overlay" style={{
+                                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                background: 'rgba(19, 23, 34, 0.95)', zIndex: 10,
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#ff4444'
+                            }}>
+                                <span style={{ fontSize: '18px', fontWeight: 'bold' }}>⚠️ {error}</span>
+                            </div>
+                        )}
+                    </div>
                 </main>
 
-                {/* Table Panel */}
                 <section className={`table-panel ${tableMinimized ? 'minimized' : ''}`}>
                     <div className="table-panel-header">
                         <span className="table-panel-title">📊 Results ({filtered.length})</span>
