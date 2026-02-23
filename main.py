@@ -481,6 +481,13 @@ def scan_status():
 # ── Quick Market Scan (Fibo only, top 50) ──────────────────────────
 
 TOP_50 = [
+    # ── CME Futures ──
+    "ES=F",
+    "NQ=F",
+    "YM=F",
+    "CL=F",
+    "GC=F",
+    # ── US Large Cap ──
     "AAPL",
     "MSFT",
     "GOOGL",

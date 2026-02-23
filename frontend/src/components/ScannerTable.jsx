@@ -10,16 +10,13 @@ const ScannerTable = ({ results, selectedTicker, onSelectTicker }) => {
     if (!results || results.length === 0) {
         return (
             <div className="scanner-table-empty">
-                <span>📊 No scan results yet — use 🔍 to analyze a ticker or 🚀 to scan the market</span>
+                <span>📊 No results — use 🔍 to analyze a ticker or 🚀 to scan the market</span>
             </div>
         );
     }
 
     return (
         <div className="scanner-table-wrapper">
-            <div className="scanner-table-header">
-                <span className="table-count">{results.length} results</span>
-            </div>
             <div className="scanner-table-scroll">
                 <table className="scanner-table">
                     <thead>
@@ -32,6 +29,7 @@ const ScannerTable = ({ results, selectedTicker, onSelectTicker }) => {
                             <th>Stop</th>
                             <th>Target</th>
                             <th>Dist %</th>
+                            <th>Win Rate</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -39,11 +37,9 @@ const ScannerTable = ({ results, selectedTicker, onSelectTicker }) => {
                             const isSelected = r.ticker === selectedTicker;
                             const stratColor = STRATEGY_COLORS[r.strategy] || '#8b949e';
                             return (
-                                <tr
-                                    key={`${r.ticker}-${r.strategy}-${i}`}
+                                <tr key={`${r.ticker}-${r.strategy}-${i}`}
                                     className={`scanner-row ${isSelected ? 'selected' : ''}`}
-                                    onClick={() => onSelectTicker(r.ticker)}
-                                >
+                                    onClick={() => onSelectTicker(r.ticker)}>
                                     <td className="ticker-cell">{r.ticker}</td>
                                     <td>
                                         <span className="strategy-badge" style={{ color: stratColor, borderColor: stratColor }}>
@@ -54,12 +50,13 @@ const ScannerTable = ({ results, selectedTicker, onSelectTicker }) => {
                                     <td className={r.setup?.includes('LONG') ? 'long' : r.setup?.includes('SHORT') ? 'short' : ''}>
                                         {r.setup}
                                     </td>
-                                    <td>${r.entry ?? '—'}</td>
-                                    <td>${r.stop_loss ?? '—'}</td>
-                                    <td>${r.target ?? '—'}</td>
+                                    <td>{r.entry != null ? `$${r.entry}` : '—'}</td>
+                                    <td>{r.stop_loss != null ? `$${r.stop_loss}` : '—'}</td>
+                                    <td>{r.target != null ? `$${r.target}` : '—'}</td>
                                     <td className={r.dist_pct > 0 ? 'above' : 'below'}>
                                         {r.dist_pct > 0 ? '+' : ''}{r.dist_pct}%
                                     </td>
+                                    <td className="winrate-cell">{r.win_rate || '—'}</td>
                                 </tr>
                             );
                         })}
