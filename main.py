@@ -950,7 +950,7 @@ async def scan_market():
                         {
                             "ticker": ticker,
                             "price": 0.0,
-                            "strategy": "Waiting...",
+                            "strategy": "NEUTRAL",  # Final Polish: No 'Waiting...'
                             "side": "NEUTRAL",
                             "dist_percent": 999.9,
                             "win_rate": "-",
@@ -1011,9 +1011,13 @@ async def scan_market():
                     {
                         "ticker": ticker,
                         "price": round(float(current_price), 2),
-                        "strategy": strategy_name,
-                        "side": side,  # Using 'side' for frontend compatibility
-                        "dist_percent": round(float(min_dist), 2),
+                        "strategy": strategy_name
+                        if strategy_name != "Waiting..."
+                        else "NEUTRAL",
+                        "side": side,
+                        "dist_percent": round(float(min_dist), 2)
+                        if min_dist != 999.0
+                        else 0.0,
                         "win_rate": "65%" if strategy_name != "NEUTRAL" else "-",
                     }
                 )

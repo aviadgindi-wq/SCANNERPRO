@@ -400,7 +400,7 @@ function drawIndicators(chart, ohlc, activeIndicators, indicatorSeriesRef) {
 // ─────────────────────────────────────────────────────────────────────
 //  ProChart Component
 // ─────────────────────────────────────────────────────────────────────
-const ProChart = ({ data, ticker, interval = '1d' }) => {
+const ProChart = ({ data, ticker, interval = '1d', showFibo, setShowFibo }) => {
     const chartContainerRef = useRef(null);
     const chartRef = useRef(null);
     const candleSeriesRef = useRef(null);
@@ -530,7 +530,15 @@ const ProChart = ({ data, ticker, interval = '1d' }) => {
         }
 
         // Draw Fibo overlays
-        drawFiboOverlays(chart, candleSeries, { ...data, ohlc }, overlayLinesRef);
+        if (showFibo && data) {
+            drawFiboOverlays(chart, candleSeries, { ...data, ohlc }, overlayLinesRef);
+        } else {
+            // Instant removal when toggled OFF
+            overlayLinesRef.current.forEach(s => {
+                try { chart.removeSeries(s); } catch (_) { }
+            });
+            overlayLinesRef.current = [];
+        }
 
         // Draw indicators with current selection
         drawIndicators(chart, ohlc, activeIndicators, indicatorSeriesRef);
@@ -539,7 +547,7 @@ const ProChart = ({ data, ticker, interval = '1d' }) => {
         requestAnimationFrame(() => {
             chartRef.current?.timeScale().scrollToRealTime();
         });
-    }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [data, showFibo]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Redraw indicators when activeIndicators changes (without touching candles) ──
     useEffect(() => {
@@ -592,6 +600,34 @@ const ProChart = ({ data, ticker, interval = '1d' }) => {
                         );
                     })}
                 </div>
+
+                {/* Fibonacci Toggle */}
+                <button
+                    onClick={() => setShowFibo(!showFibo)}
+                    style={{
+                        padding: '3px 10px',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        borderRadius: '4px',
+                        border: 'none',
+                        background: showFibo ? '#2563eb' : '#3a3f4b',
+                        color: showFibo ? '#fff' : '#8b929e',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                        marginLeft: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                    }}
+                >
+                    <span style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: showFibo ? '#10b981' : '#6b7280'
+                    }} />
+                    FIBO
+                </button>
 
                 {/* Custom indicator input */}
                 <form onSubmit={handleIndicatorSubmit} style={{ display: 'flex', gap: '4px' }}>

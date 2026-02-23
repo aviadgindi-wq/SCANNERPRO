@@ -37,7 +37,7 @@ function App() {
     // Initialize with placeholders for the entire WATCHLIST
     const [scanResults, setScanResults] = useState(
         WATCHLIST.map(sym => ({
-            ticker: sym, price: 0, scale: '—', strategy: 'Waiting...', dist_percent: 0, signal: 'NEUTRAL', win_rate: '—'
+            ticker: sym, price: 0, scale: '—', strategy: 'NEUTRAL', dist_percent: 0, signal: 'NEUTRAL', win_rate: '—'
         }))
     );
 
@@ -50,6 +50,7 @@ function App() {
     const [tableMinimized, setTableMinimized] = useState(false);
     const [filterMarket, setFilterMarket] = useState('all');
     const [filterSignal, setFilterSignal] = useState('all');
+    const [showFibo, setShowFibo] = useState(true);
 
     // ── Load chart from backend ──
     const loadChart = async (symbol, intv) => {
@@ -201,7 +202,12 @@ function App() {
                 <main className="chart-panel">
                     <div className="chart-wrapper">
                         {/* Render ProChart unconditionally to prevent iframe unmounting & black flashes */}
-                        <ProChart data={chartData} ticker={ticker} />
+                        <ProChart
+                            data={chartData}
+                            ticker={ticker}
+                            showFibo={showFibo}
+                            setShowFibo={setShowFibo}
+                        />
 
                         {/* Overlay loading/error states on top of the chart */}
                         {loading && (
