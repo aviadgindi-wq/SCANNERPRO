@@ -356,7 +356,7 @@ def get_chart(
 
 # Keep legacy /scan endpoint — always returns full Fibo + Zig-Zag data
 @app.get("/scan")
-def scan_ticker(ticker: str = Query(...)):
+def legacy_scan(ticker: str = Query(...)):
     return get_chart(ticker=ticker, interval="1d", strategy="fibo")
 
 
@@ -532,6 +532,151 @@ TOP_50 = [
     "ISRG",
     "SYK",
 ]
+
+
+@app.get("/scan-ticker")
+def scan_ticker(ticker: str = Query(...), strategy: str = Query("all")):
+    """Scan a single ticker for active setups across all strategies."""
+    results = []
+    strategies_to_run = (
+        ["fibo", "nick_shawn", "qullamaggie"] if strategy == "all" else [strategy]
+    )
+    try:
+        data = yf.download(ticker.upper(), period="1y", interval="1d", progress=False)
+        if data is None or data.empty or len(data) < 60:
+            return {"count": 0, "results": [], "error": f"No data for {ticker}"}
+
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.get_level_values(0)
+
+        df = calculate_indicators(data)
+        close = round(float(df["Close"].iloc[-1]), 2)
+
+        if "fibo" in strategies_to_run:
+            fibo = find_3_leg_fibo_short(df)
+            if fibo and fibo[0] is not None:
+                entry = round(float(fibo[0]), 2)
+                sl = round(float(fibo[1]), 2)
+                tp = round(float(fibo[2]), 2)
+                dist = round(((entry - close) / close) * 100, 2) if close else 0
+                if close >= entry:
+                    leg = "🎯 At Entry"
+                elif fibo[7]:
+                    leg = "↩️ Pullback"
+                else:
+                    leg = "🔨 Building"
+                results.append(
+                    {
+                        "ticker": ticker.upper(),
+                        "strategy": "Fibonacci",
+                        "signal": leg,
+                        "setup": "SHORT 📉" if entry < sl else "LONG 📈",
+                        "close": close,
+                        "entry": entry,
+                        "stop_loss": sl,
+                        "target": tp,
+                        "dist_pct": dist,
+                        "win_rate": "—",
+                    }
+                )
+
+        if "qullamaggie" in strategies_to_run:
+            last = df.iloc[-1]
+            ema10 = float(last["EMA_10"])
+            ema20 = float(last["EMA_20"])
+            ema50 = float(last["EMA_50"])
+            vol_sma = float(last["Vol_SMA_30"])
+            if close > 5 and vol_sma > 500000 and close > ema10 > ema20 > ema50:
+                entry = round(float(df["High"].tail(10).max()), 2)
+                sl = round(ema20, 2)
+                if entry > sl:
+                    risk = entry - sl
+                    tp = round(entry + 3 * risk, 2)
+                    dist = round(((entry - close) / close) * 100, 2) if close else 0
+                    if close >= entry * 0.995:
+                        leg = "🚀 Active"
+                    elif abs(dist) <= 5:
+                        leg = "🔥 Close"
+                    else:
+                        leg = "⏳ Building"
+                    results.append(
+                        {
+                            "ticker": ticker.upper(),
+                            "strategy": "Qullamaggie",
+                            "signal": leg,
+                            "setup": "LONG 📈",
+                            "close": close,
+                            "entry": entry,
+                            "stop_loss": sl,
+                            "target": tp,
+                            "dist_pct": dist,
+                            "win_rate": "—",
+                        }
+                    )
+
+        if "nick_shawn" in strategies_to_run:
+            recent_50 = df.tail(50)
+            support = float(recent_50["Low"].min())
+            resistance = float(recent_50["High"].max())
+            if close <= support * 1.015 and close >= support:
+                sl = round(support * 0.99, 2)
+                tp = round(close + (close - sl), 2)
+                dist = round(((close - support) / support) * 100, 2)
+                leg = "🟢 At Support" if dist <= 0.5 else "🔥 Near Support"
+                results.append(
+                    {
+                        "ticker": ticker.upper(),
+                        "strategy": "Nick Shawn",
+                        "signal": leg,
+                        "setup": "LONG 📈",
+                        "close": close,
+                        "entry": round(close, 2),
+                        "stop_loss": sl,
+                        "target": tp,
+                        "dist_pct": dist,
+                        "win_rate": "—",
+                    }
+                )
+            elif close >= resistance * 0.985 and close <= resistance:
+                sl = round(resistance * 1.01, 2)
+                tp = round(close - (sl - close), 2)
+                dist = round(((resistance - close) / resistance) * 100, 2)
+                leg = "🔴 At Resistance" if dist <= 0.5 else "🔥 Near Resistance"
+                results.append(
+                    {
+                        "ticker": ticker.upper(),
+                        "strategy": "Nick Shawn",
+                        "signal": leg,
+                        "setup": "SHORT 📉",
+                        "close": close,
+                        "entry": round(close, 2),
+                        "stop_loss": sl,
+                        "target": tp,
+                        "dist_pct": dist,
+                        "win_rate": "—",
+                    }
+                )
+
+        # If no strategy triggered, still return basic info
+        if not results:
+            results.append(
+                {
+                    "ticker": ticker.upper(),
+                    "strategy": "—",
+                    "signal": "No Setup",
+                    "setup": "—",
+                    "close": close,
+                    "entry": None,
+                    "stop_loss": None,
+                    "target": None,
+                    "dist_pct": 0,
+                    "win_rate": "—",
+                }
+            )
+    except Exception as e:
+        return {"count": 0, "results": [], "error": str(e)}
+
+    return {"count": len(results), "results": results}
 
 
 @app.get("/scan-market")
