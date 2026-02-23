@@ -756,8 +756,62 @@ body {
 .card-levels {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 0.6rem;
   color: #6e7681;
   border-top: 1px solid #21262d;
   padding-top: 0.25rem;
+}
+
+/* ─── Strategy Selector ──────────────────────────────────────────── */
+.strategy-selector {
+  padding: 0.4rem 0.75rem;
+}
+
+.strategy-dropdown {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border-radius: 5px;
+  border: 1px solid #30363d;
+  background: #0d1117;
+  color: #c9d1d9;
+  font-size: 0.75rem;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.strategy-dropdown:focus {
+  border-color: #58a6ff;
+}
+
+.scan-summary {
+  padding: 0.2rem 0.75rem;
+  font-size: 0.7rem;
+  color: #8b949e;
+}
+
+.scan-summary strong {
+  color: #e6edf3;
+}
+
+.card-strategy-badge {
+  font-size: 0.55rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  border: 1px solid;
+  background: transparent;
+  letter-spacing: 0.02em;
+}
+
+.long-tag {
+  color: #3fb950;
+  font-weight: 600;
+}
+
+.short-tag {
+  color: #f85149;
+  font-weight: 600;
 }
