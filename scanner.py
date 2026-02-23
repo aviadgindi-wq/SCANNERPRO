@@ -368,6 +368,9 @@ def calculate_indicators(df):
     # 30-day Volume SMA
     df["Vol_SMA_30"] = df["Volume"].rolling(window=30).mean()
 
+    # 200-day SMA
+    df["SMA_200"] = df["Close"].rolling(window=200).mean()
+
     # 20-day ADR (Average Daily Range)
     # Daily Range = (High / Low) - 1
     df["Daily_Range"] = (df["High"] / df["Low"]) - 1

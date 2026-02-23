@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query
+
+print("--- BOOTING SCANNER PRO V2 (CATEGORIES ACTIVE) ---")
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -18,15 +20,12 @@ from scanner import (
 
 app = FastAPI(title="Scanner PRO API")
 
-# ── Serve React static files from FRONTEND/dist ─────────────────────
+# Serve React static files from frontend/dist
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Primary: FRONTEND/dist (Render / GitHub)  Fallback: frontend/dist (local dev)
-if os.path.isdir(os.path.join(BASE_DIR, "FRONTEND", "dist")):
-    FRONTEND_DIR = os.path.join(BASE_DIR, "FRONTEND", "dist")
-elif os.path.isdir(os.path.join(BASE_DIR, "frontend", "dist")):
-    FRONTEND_DIR = os.path.join(BASE_DIR, "frontend", "dist")
-else:
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend", "dist")
+if not os.path.isdir(FRONTEND_DIR):
+    # Fallback for Render/Linux case-sensitive environments if needed,
+    # but for local Windows we prioritize lowercase 'frontend'
     FRONTEND_DIR = os.path.join(BASE_DIR, "FRONTEND", "dist")
 
 # Mount /assets for JS/CSS bundles
@@ -490,66 +489,150 @@ def scan_status():
     return _scan_status
 
 
-# ── Quick Market Scan (Fibo only, top 50) ──────────────────────────
+# ── Global Watchlist: Indices + CME Futures + Commodities + Top 100 S&P 500 ──
 
-TOP_50 = [
-    # ── CME Futures ──
+# ── DASHBOARD Watchlist ──
+
+DASHBOARD_WATCHLIST = [
+    # --- CME Futures ---
     "ES=F",
     "NQ=F",
     "YM=F",
-    "CL=F",
+    "RTY=F",
     "GC=F",
-    # ── US Large Cap ──
+    "CL=F",
+    "SI=F",
+    "HG=F",
+    "NG=F",
+    "RB=F",
+    "HO=F",
+    "ZC=F",
+    "ZS=F",
+    "ZW=F",
+    "PA=F",
+    "PL=F",
+    "HE=F",
+    "LE=F",
+    "GF=F",
+    "ZO=F",
+    "ZR=F",
+    "ZM=F",
+    "ZL=F",
+    # --- ETFs ---
+    "SPY",
+    "QQQ",
+    "IWM",
+    "DIA",
+    "TLT",
+    "XLK",
+    "XLV",
+    "XLF",
+    "XLE",
+    "XLI",
+    "XLY",
+    "XLP",
+    "XLB",
+    "XLU",
+    "XLC",
+    "XLRE",
+    "ARKK",
+    "SMH",
+    # --- Top 100 S&P 500 & Leaders ---
     "AAPL",
     "MSFT",
-    "GOOGL",
-    "AMZN",
     "NVDA",
+    "AMZN",
+    "GOOGL",
     "META",
     "TSLA",
     "BRK-B",
-    "JPM",
+    "LLY",
+    "AVGO",
     "V",
+    "JPM",
     "UNH",
-    "JNJ",
-    "WMT",
-    "XOM",
     "MA",
+    "WMT",
+    "JNJ",
     "PG",
     "HD",
-    "CVX",
-    "MRK",
-    "ABBV",
     "COST",
-    "PEP",
+    "ORCL",
+    "ABBV",
+    "MRK",
+    "BAC",
+    "CVX",
+    "CRM",
     "KO",
-    "AVGO",
-    "LLY",
+    "AMD",
+    "PEP",
+    "ADBE",
+    "LIN",
     "TMO",
     "MCD",
     "CSCO",
-    "ACN",
+    "DIS",
     "ABT",
-    "DHR",
-    "CRM",
-    "NKE",
-    "TXN",
-    "CMCSA",
-    "NEE",
-    "PM",
-    "VZ",
-    "INTC",
-    "UPS",
+    "TMUS",
+    "WFC",
+    "INTU",
+    "GE",
     "QCOM",
-    "AMD",
-    "LOW",
-    "BA",
     "CAT",
     "AMAT",
-    "SPGI",
-    "GS",
+    "IBM",
+    "MS",
+    "AMGN",
+    "VZ",
+    "TXN",
+    "NEE",
+    "PM",
+    "UNP",
+    "HON",
     "ISRG",
+    "BMY",
+    "GS",
+    "LOW",
+    "SPGI",
+    "RTX",
+    "COP",
+    "UPS",
+    "LRCX",
+    "ELV",
+    "PGR",
+    "BKNG",
+    "C",
+    "MU",
+    "LMT",
+    "TJX",
+    "DE",
+    "REGN",
+    "PLD",
+    "CI",
+    "MDT",
+    "SBUX",
+    "MMC",
+    "ADP",
+    "SCHW",
     "SYK",
+    "CB",
+    "VRTX",
+    "BSX",
+    "ETN",
+    "PANW",
+    "SNPS",
+    "ZTS",
+    "MO",
+    "FI",
+    "AMT",
+    "CDNS",
+    "ICE",
+    "ADI",
+    "CME",
+    "SHW",
+    "KLAC",
+    "DUK",
+    "ITW",
 ]
 
 
@@ -569,6 +652,8 @@ def scan_ticker(ticker: str = Query(...), strategy: str = Query("all")):
             "YM": "YM=F",
             "CL": "CL=F",
             "GC": "GC=F",
+            "SI": "SI=F",
+            "NG": "NG=F",
         }
         ticker_yf = YF_MAP.get(ticker.upper(), ticker.upper())
         data = yf.download(ticker_yf, period="1y", interval="1d", progress=False)
@@ -698,7 +783,7 @@ def scan_ticker(ticker: str = Query(...), strategy: str = Query("all")):
                     "entry": None,
                     "stop_loss": None,
                     "target": None,
-                    "dist_pct": 0,
+                    "dist_pct": None,
                     "win_rate": "—",
                 }
             )
@@ -708,142 +793,243 @@ def scan_ticker(ticker: str = Query(...), strategy: str = Query("all")):
     return {"count": len(results), "results": results}
 
 
-@app.get("/scan-market")
-def scan_market(strategy: str = Query("all")):
-    """Modular market scan — supports fibo, nick_shawn, qullamaggie, or all."""
-    results = []
-    strategies_to_run = (
-        ["fibo", "nick_shawn", "qullamaggie"] if strategy == "all" else [strategy]
-    )
+# ─────────────────────────────────────────────────────────────────────
+#  Dashboard Mode — BATCH download + Proximity Logic
+# ─────────────────────────────────────────────────────────────────────
 
-    for ticker in TOP_50:
-        try:
-            data = yf.download(ticker, period="1y", interval="1d", progress=False)
-            if data is None or data.empty or len(data) < 60:
+
+def _process_ticker_v2(ticker, df):
+    """Specific logic for Dashboard Mode:
+    Proximity to SMA200 or Fibo 0.5/0.618."""
+    try:
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+
+        df = df.dropna(subset=["Open", "High", "Low", "Close"])
+        if len(df) < 200:  # Need 200 for SMA200
+            return None
+
+        df = calculate_indicators(df)
+        close = round(float(df["Close"].iloc[-1]), 2)
+
+        # ── Proximity Calculators ──
+
+        # 1. SMA 200
+        sma200 = float(df["SMA_200"].iloc[-1])
+        dist_sma = ((sma200 - close) / close) * 100
+
+        # 2. Fibonacci (Last 60 days swing)
+        recent = df.tail(60)
+        low = float(recent["Low"].min())
+        high = float(recent["High"].max())
+        diff = high - low
+        fibo_50 = high - (0.5 * diff)
+        fibo_618 = high - (0.618 * diff)
+        dist_f50 = ((fibo_50 - close) / close) * 100
+        dist_f618 = ((fibo_618 - close) / close) * 100
+
+        # 3. Qullamaggie (EMA Alignment & Distance)
+        ema10 = float(df["EMA_10"].iloc[-1])
+        ema20 = float(df["EMA_20"].iloc[-1])
+        ema50 = float(df["EMA_50"].iloc[-1])
+        # "Proximity" to breakout (estimated by distance to EMA10 or recent high)
+        recent_high = float(recent["High"].max())
+        dist_qm = ((recent_high - close) / close) * 100
+        qm_aligned = close > ema10 > ema20 > ema50
+
+        # 4. Nick Shawn (Support/Resistance)
+        sup, res_level = find_support_resistance(df)
+        dist_sup = ((sup - close) / close) * 100
+        dist_res = ((res_level - close) / close) * 100
+
+        # Find nearest - MAP TO GENERIC NAMES
+        candidates = [
+            (
+                dist_sma,
+                "Qullamaggie",
+                "LONG" if close < sma200 else "SHORT",
+            ),  # SMA200 -> QM category
+            (dist_f50, "Fibonacci", "LONG" if close < fibo_50 else "SHORT"),
+            (dist_f618, "Fibonacci", "LONG" if close < fibo_618 else "SHORT"),
+            (dist_qm, "Qullamaggie", "LONG" if close < recent_high else "BREAKOUT"),
+            (dist_sup, "Nick Shawn", "LONG"),
+            (dist_res, "Nick Shawn", "SHORT"),
+        ]
+
+        # Prioritize "Watch" signals or nearest absolute distance
+        candidates.sort(key=lambda x: abs(x[0]))
+
+        # If QM is aligned and close to breakout, maybe prioritize it
+        if qm_aligned and abs(dist_qm) < 2.0:
+            best_dist, best_strat, best_side = dist_qm, "Qullamaggie", "LONG"
+        else:
+            best_dist, best_strat, best_side = candidates[0]
+
+        best_dist = round(best_dist, 2)
+        signal = "WATCH" if abs(best_dist) < 1.0 else "NEUTRAL"
+
+        return {
+            "ticker": ticker,
+            "price": close,
+            "side": best_side,
+            "strategy": best_strat,
+            "dist_percent": best_dist,
+            "signal": signal,
+            "win_rate": "60%",
+        }
+
+    except Exception as e:
+        print(f"Error {ticker}: {e}")
+        return None
+
+
+@app.get("/scan-market")
+async def scan_market():
+    """Emergency Fix: Simplified logic to enforce generic names and restore scanner."""
+    print("--- Starting Dashboard Scan ---", flush=True)
+    results = []
+
+    # רשימה קשיחה ומלאה
+    tickers = [
+        "ES=F",
+        "NQ=F",
+        "YM=F",
+        "RTY=F",
+        "GC=F",
+        "CL=F",
+        "SI=F",
+        "HG=F",
+        "SPY",
+        "QQQ",
+        "IWM",
+        "DIA",
+        "TLT",
+        "AAPL",
+        "MSFT",
+        "NVDA",
+        "AMZN",
+        "GOOGL",
+        "META",
+        "TSLA",
+        "AMD",
+        "NFLX",
+        "INTC",
+        "QCOM",
+        "JPM",
+        "BAC",
+        "XOM",
+        "CVX",
+        "BA",
+    ]
+
+    try:
+        # הורדה קבוצתית למניעת קריסה. משתמשים ב-1y בשביל SMA200.
+        data = yf.download(
+            tickers,
+            period="1y",
+            interval="1d",
+            group_by="ticker",
+            threads=True,
+            progress=False,
+        )
+
+        for ticker in tickers:
+            try:
+                # שליפת נתונים בטוחה
+                if len(tickers) == 1:
+                    df = data
+                else:
+                    if ticker not in data.columns.levels[0]:
+                        continue
+                    df = data[ticker]
+
+                # ניקוי ואיתור מחיר אחרון
+                df = df.dropna(subset=["Open", "High", "Low", "Close"])
+                if df.empty or len(df) < 50:
+                    results.append(
+                        {
+                            "ticker": ticker,
+                            "price": 0.0,
+                            "strategy": "Waiting...",
+                            "side": "NEUTRAL",
+                            "dist_percent": 999.9,
+                            "win_rate": "-",
+                        }
+                    )
+                    continue
+
+                current_price = float(df["Close"].iloc[-1])
+
+                # --- לוגיקת האסטרטגיות (גנרית ופשוטה) ---
+                strategy_name = "NEUTRAL"
+                side = "NEUTRAL"
+                min_dist = 999.0
+
+                # 1. Qullamaggie (SMA 200 proximity)
+                if len(df) >= 200:
+                    sma200 = df["Close"].rolling(window=200).mean().iloc[-1]
+                    dist_sma = abs(current_price - sma200) / current_price * 100
+                    if dist_sma < 2.0:
+                        min_dist = dist_sma
+                        strategy_name = "Qullamaggie"  # שם גנרי!
+                        side = "LONG" if current_price > sma200 else "SHORT"
+
+                # 2. Fibonacci (Last 60 days swing)
+                recent = df.tail(60)
+                low = float(recent["Low"].min())
+                high = float(recent["High"].max())
+                diff = high - low
+                if diff > 0:
+                    fibo_50 = high - (0.5 * diff)
+                    fibo_618 = high - (0.618 * diff)
+                    dist_f50 = abs(current_price - fibo_50) / current_price * 100
+                    dist_f618 = abs(current_price - fibo_618) / current_price * 100
+
+                    if dist_f50 < min_dist:
+                        min_dist = dist_f50
+                        strategy_name = "Fibonacci"
+                        side = "LONG" if current_price < fibo_50 else "SHORT"
+                    if dist_f618 < min_dist:
+                        min_dist = dist_f618
+                        strategy_name = "Fibonacci"
+                        side = "LONG" if current_price < fibo_618 else "SHORT"
+
+                # 3. Nick Shawn (Support/Resistance)
+                try:
+                    sr_label, sr_level = find_support_resistance(df)
+                    if isinstance(sr_level, (int, float)) and sr_level > 0:
+                        dist_sr = abs(current_price - sr_level) / current_price * 100
+                        if dist_sr < min_dist:
+                            min_dist = dist_sr
+                            strategy_name = "Nick Shawn"
+                            side = "LONG" if sr_label == "Support" else "SHORT"
+                except Exception as sr_err:
+                    print(f"SR error: {sr_err}")
+
+                # --- בניית התוצאה ---
+                results.append(
+                    {
+                        "ticker": ticker,
+                        "price": round(float(current_price), 2),
+                        "strategy": strategy_name,
+                        "side": side,  # Using 'side' for frontend compatibility
+                        "dist_percent": round(float(min_dist), 2),
+                        "win_rate": "65%" if strategy_name != "NEUTRAL" else "-",
+                    }
+                )
+
+            except Exception as e:
+                print(f"Skipping {ticker}: {e}")
                 continue
 
-            if isinstance(data.columns, pd.MultiIndex):
-                data.columns = data.columns.get_level_values(0)
+        # מיון: הקרובים ביותר למעלה
+        results.sort(key=lambda x: x["dist_percent"])
+        print(f"Batch Scan Ready. Returning {len(results)} results.", flush=True)
+        return results
 
-            df = calculate_indicators(data)
-            close = round(float(df["Close"].iloc[-1]), 2)
-
-            # ── Fibonacci Strategy ──
-            if "fibo" in strategies_to_run:
-                fibo = find_3_leg_fibo_short(df)
-                if fibo and fibo[0] is not None:
-                    entry = round(float(fibo[0]), 2)
-                    sl = round(float(fibo[1]), 2)
-                    tp = round(float(fibo[2]), 2)
-                    dist = round(((entry - close) / close) * 100, 2) if close else 0
-                    if close >= entry:
-                        leg = "Leg 3 — At Entry Zone 🎯"
-                    elif fibo[7]:
-                        leg = "Leg 2 — Pullback Active ↩️"
-                    else:
-                        leg = "Leg 1 — Building 🔨"
-                    results.append(
-                        {
-                            "ticker": ticker,
-                            "strategy": "Fibonacci",
-                            "signal": leg,
-                            "setup": "LONG 📈" if entry > sl else "SHORT 📉",
-                            "close": close,
-                            "entry": entry,
-                            "stop_loss": sl,
-                            "target": tp,
-                            "dist_pct": dist,
-                            "win_rate": "62%",
-                        }
-                    )
-
-            # ── Qullamaggie Breakout Strategy ──
-            if "qullamaggie" in strategies_to_run:
-                last = df.iloc[-1]
-                ema10, ema20, ema50 = (
-                    float(last["EMA_10"]),
-                    float(last["EMA_20"]),
-                    float(last["EMA_50"]),
-                )
-                vol_sma = float(last["Vol_SMA_30"])
-                if close > 5 and vol_sma > 500000 and close > ema10 > ema20 > ema50:
-                    entry = round(float(df["High"].tail(10).max()), 2)
-                    sl = round(ema20, 2)
-                    if entry > sl:
-                        risk = entry - sl
-                        tp = round(entry + 3 * risk, 2)
-                        dist = round(((entry - close) / close) * 100, 2) if close else 0
-                        if close >= entry * 0.995:
-                            leg = "Breakout Active 🚀"
-                        elif abs(dist) <= 5:
-                            leg = "Near Breakout 🔥"
-                        else:
-                            leg = "Building Base ⏳"
-                        results.append(
-                            {
-                                "ticker": ticker,
-                                "strategy": "Qullamaggie",
-                                "signal": leg,
-                                "setup": "LONG 📈",
-                                "close": close,
-                                "entry": entry,
-                                "stop_loss": sl,
-                                "target": tp,
-                                "dist_pct": dist,
-                                "win_rate": "55%",
-                            }
-                        )
-
-            # ── Nick Shawn S/R Strategy ──
-            if "nick_shawn" in strategies_to_run:
-                recent_50 = df.tail(50)
-                support = float(recent_50["Low"].min())
-                resistance = float(recent_50["High"].max())
-                if close <= support * 1.015 and close >= support:
-                    sl = round(support * 0.99, 2)
-                    tp = round(close + (close - sl), 2)
-                    dist = round(((close - support) / support) * 100, 2)
-                    leg = "At Support Zone 🟢" if dist <= 0.5 else "Near Support 🔥"
-                    results.append(
-                        {
-                            "ticker": ticker,
-                            "strategy": "Nick Shawn",
-                            "signal": leg,
-                            "setup": "LONG 📈" if tp > close else "SHORT 📉",
-                            "close": close,
-                            "entry": round(close, 2),
-                            "stop_loss": sl,
-                            "target": tp,
-                            "dist_pct": dist,
-                            "win_rate": "58%",
-                        }
-                    )
-                elif close >= resistance * 0.985 and close <= resistance:
-                    sl = round(resistance * 1.01, 2)
-                    tp = round(close - (sl - close), 2)
-                    dist = round(((resistance - close) / resistance) * 100, 2)
-                    leg = (
-                        "At Resistance Zone 🔴" if dist <= 0.5 else "Near Resistance 🔥"
-                    )
-                    results.append(
-                        {
-                            "ticker": ticker,
-                            "strategy": "Nick Shawn",
-                            "close": close,
-                            "entry": round(close, 2),
-                            "stop_loss": sl,
-                            "target": tp,
-                            "dist_pct": dist,
-                            "leg_status": leg,
-                            "type": "SHORT 📉",
-                        }
-                    )
-
-        except Exception:
-            continue
-
-    results.sort(key=lambda r: abs(r["dist_pct"]))
-    return {"count": len(results), "strategy": strategy, "results": results}
+    except Exception as main_e:
+        print(f"CRITICAL ERROR: {main_e}")
+        return []
 
 
 # ── Catch-all: serve React index.html for SPA routing ────────────────

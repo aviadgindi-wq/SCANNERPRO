@@ -4,8 +4,8 @@ import ProChart from './components/ProChart';
 import ScannerTable from './components/ScannerTable';
 import './index.css';
 
-const API_BASE = window.location.hostname === 'localhost'
-    ? 'http://127.0.0.1:8000'
+const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? window.location.origin
     : 'https://scannerpro.onrender.com';
 
 const INTERVALS = [
@@ -18,13 +18,29 @@ const INTERVALS = [
     { value: '1wk', label: 'W' },
 ];
 
+const WATCHLIST = [
+    // --- CME Futures ---
+    "ES=F", "NQ=F", "YM=F", "RTY=F", "GC=F", "CL=F", "SI=F", "HG=F", "NG=F", "RB=F", "HO=F", "ZC=F", "ZS=F", "ZW=F",
+    // --- ETFs ---
+    "SPY", "QQQ", "IWM", "DIA", "TLT", "XLK", "XLV", "XLF", "XLE", "XLI", "XLY", "XLP", "XLB", "XLU", "XLC", "XLRE",
+    // --- Top 100 S&P 500 & Leaders ---
+    "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "BRK-B", "LLY", "AVGO", "V", "JPM", "UNH", "MA", "WMT", "JNJ", "PG", "HD", "COST", "ORCL", "ABBV", "MRK", "BAC", "CVX", "CRM", "KO", "AMD", "PEP", "ADBE", "LIN", "TMO", "MCD", "CSCO", "DIS", "ABT", "TMUS", "WFC", "INTU", "GE", "QCOM", "CAT", "AMAT", "IBM", "MS", "AMGN", "VZ", "TXN", "NEE", "PM", "UNP", "HON", "ISRG", "BMY", "GS", "LOW", "SPGI", "RTX", "COP", "UPS", "LRCX", "ELV", "PGR", "BKNG", "C", "MU", "LMT", "TJX", "DE", "REGN", "PLD", "CI", "MDT", "SBUX", "MMC", "ADP", "SCHW", "SYK", "CB", "VRTX", "BSX", "ETN", "PANW", "SNPS", "ZTS", "MO", "FI", "AMT", "CDNS", "ICE", "ADI", "CME", "SHW", "KLAC", "DUK", "PGR", "ITW"
+];
+
 function App() {
     const [ticker, setTicker] = useState('AAPL');
     const [searchInput, setSearchInput] = useState('');
     const [interval, setIntervalState] = useState('1d');
     const [chartType, setChartType] = useState('candlestick');
     const [chartData, setChartData] = useState(null);
-    const [scanResults, setScanResults] = useState([]);
+
+    // Initialize with placeholders for the entire WATCHLIST
+    const [scanResults, setScanResults] = useState(
+        WATCHLIST.map(sym => ({
+            ticker: sym, price: 0, scale: '—', strategy: 'Waiting...', dist_percent: 0, signal: 'NEUTRAL', win_rate: '—'
+        }))
+    );
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [scanning, setScanning] = useState(false);
@@ -35,22 +51,14 @@ function App() {
     const [filterMarket, setFilterMarket] = useState('all');
     const [filterSignal, setFilterSignal] = useState('all');
 
-    // ── Load chart from backend (with overlays!) ──
+    // ── Load chart from backend ──
     const loadChart = async (symbol, intv) => {
         const i = intv || interval;
         setTicker(symbol);
         setLoading(true);
         setError(null);
-
-        // Map Futures to YF format for backend fetching
-        const mappedSymbols = {
-            'ES': 'ES=F', 'MES': 'MES=F',
-            'NQ': 'NQ=F', 'MNQ': 'MNQ=F',
-            'YM': 'YM=F', 'CL': 'CL=F', 'GC': 'GC=F'
-        };
-        const querySymbol = mappedSymbols[symbol.toUpperCase()] || symbol;
-
         try {
+            const querySymbol = symbol.includes('=') ? symbol : symbol;
             const res = await axios.get(`${API_BASE}/chart?ticker=${querySymbol}&interval=${i}&strategy=fibo`);
             setChartData(res.data);
         } catch (err) {
@@ -63,6 +71,45 @@ function App() {
 
     useEffect(() => { loadChart(ticker, interval); }, [interval]);
 
+    // ── Auto-Scan on mount ──
+    useEffect(() => {
+        runMarketScan();
+    }, []);
+
+    // ── Market Scan (SMART UPDATE) ──
+    const runMarketScan = async () => {
+        if (scanning) return;
+        setScanning(true);
+        setScanMsg('Scanning...');
+        try {
+            const res = await axios.get(`${API_BASE}/scan-market?strategy=${scanStrategy}`);
+            const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
+
+            // Merge logic: Update in-place to prevent table flicker/rebuild
+            setScanResults(prev => {
+                const newResults = [...prev];
+                data.forEach(item => {
+                    const idx = newResults.findIndex(r => r.ticker === item.ticker);
+                    if (idx !== -1) {
+                        newResults[idx] = { ...newResults[idx], ...item };
+                    } else {
+                        // If it's a new ticker not in hardcoded watchlist
+                        newResults.push(item);
+                    }
+                });
+                return newResults;
+            });
+
+            setScanMsg(`✅ ${data.length} items`);
+            setTimeout(() => setScanMsg(''), 4000);
+        } catch (err) {
+            console.error(err);
+            setScanMsg('❌ Failed');
+            setTimeout(() => setScanMsg(''), 3000);
+        }
+        finally { setScanning(false); }
+    };
+
     // ── Search-to-Analyze ──
     const handleSearch = async (e) => {
         e.preventDefault();
@@ -72,25 +119,20 @@ function App() {
         try {
             const res = await axios.get(`${API_BASE}/scan-ticker?ticker=${t}&strategy=${scanStrategy}`);
             if (res.data.results?.length > 0) {
-                setScanResults(prev => [...res.data.results, ...prev.filter(r => r.ticker !== t)]);
+                const item = res.data.results[0];
+                setScanResults(prev => {
+                    const idx = prev.findIndex(r => r.ticker === t);
+                    if (idx !== -1) {
+                        const next = [...prev];
+                        next[idx] = item;
+                        return next;
+                    }
+                    return [item, ...prev];
+                });
             }
             loadChart(t, interval);
         } catch (err) { console.error(err); }
         finally { setSearching(false); setSearchInput(''); }
-    };
-
-    // ── Market Scan ──
-    const runMarketScan = async () => {
-        if (scanning) return;
-        setScanning(true);
-        setScanMsg('Scanning...');
-        try {
-            const res = await axios.get(`${API_BASE}/scan-market?strategy=${scanStrategy}`);
-            setScanResults(res.data.results || []);
-            setScanMsg(`✅ ${res.data.count || 0} setups`);
-            setTimeout(() => setScanMsg(''), 4000);
-        } catch { setScanMsg('❌ Failed'); setTimeout(() => setScanMsg(''), 3000); }
-        finally { setScanning(false); }
     };
 
     // ── Row click → load chart with overlays ──
@@ -104,9 +146,9 @@ function App() {
             if (filterMarket === 'stocks' && isFuture) return false;
         }
         if (filterSignal !== 'all') {
-            const sig = (r.signal || '').toLowerCase();
-            if (filterSignal === 'active' && !sig.includes('active') && !sig.includes('entry') && !sig.includes('support') && !sig.includes('resistance')) return false;
-            if (filterSignal === 'building' && !sig.includes('building') && !sig.includes('close') && !sig.includes('pullback')) return false;
+            const sig = (r.signal || '').toUpperCase();
+            if (filterSignal === 'active' && sig !== 'WATCH') return false;
+            if (filterSignal === 'building' && sig !== 'NEUTRAL') return false;
         }
         return true;
     });
