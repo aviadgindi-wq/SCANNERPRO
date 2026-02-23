@@ -435,16 +435,226 @@ def get_results(strategy: str = Query("qullamaggie")):
 
 # ── Run Scanner Endpoint ────────────────────────────────────────────
 from scanner import run_scanner as _run_scanner
+import threading
+
+_scan_status = {"running": False, "message": "idle"}
 
 
 @app.post("/run-scan")
 def run_scan_endpoint():
-    """Trigger a full market scan."""
-    try:
-        _run_scanner()
-        return {"status": "ok", "message": "Scan complete"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Trigger a full market scan in background thread."""
+    if _scan_status["running"]:
+        return {"status": "running", "message": "Scan already in progress..."}
+
+    def _scan_worker():
+        _scan_status["running"] = True
+        _scan_status["message"] = "Scanning market..."
+        try:
+            _run_scanner()
+            _scan_status["message"] = "Scan complete"
+        except Exception as e:
+            _scan_status["message"] = f"Error: {str(e)}"
+        finally:
+            _scan_status["running"] = False
+
+    threading.Thread(target=_scan_worker, daemon=True).start()
+    return {"status": "started", "message": "Market scan started..."}
+
+
+@app.get("/scan-status")
+def scan_status():
+    return _scan_status
+
+
+# ── Quick Market Scan (Fibo only, top 50) ──────────────────────────
+
+TOP_50 = [
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "NVDA",
+    "META",
+    "TSLA",
+    "BRK-B",
+    "JPM",
+    "V",
+    "UNH",
+    "JNJ",
+    "WMT",
+    "XOM",
+    "MA",
+    "PG",
+    "HD",
+    "CVX",
+    "MRK",
+    "ABBV",
+    "COST",
+    "PEP",
+    "KO",
+    "AVGO",
+    "LLY",
+    "TMO",
+    "MCD",
+    "CSCO",
+    "ACN",
+    "ABT",
+    "DHR",
+    "CRM",
+    "NKE",
+    "TXN",
+    "CMCSA",
+    "NEE",
+    "PM",
+    "VZ",
+    "INTC",
+    "UPS",
+    "QCOM",
+    "AMD",
+    "LOW",
+    "BA",
+    "CAT",
+    "AMAT",
+    "SPGI",
+    "GS",
+    "ISRG",
+    "SYK",
+]
+
+
+@app.get("/scan-market")
+def scan_market(strategy: str = Query("all")):
+    """Modular market scan — supports fibo, nick_shawn, qullamaggie, or all."""
+    results = []
+    strategies_to_run = (
+        ["fibo", "nick_shawn", "qullamaggie"] if strategy == "all" else [strategy]
+    )
+
+    for ticker in TOP_50:
+        try:
+            data = yf.download(ticker, period="1y", interval="1d", progress=False)
+            if data is None or data.empty or len(data) < 60:
+                continue
+
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = data.columns.get_level_values(0)
+
+            df = calculate_indicators(data)
+            close = round(float(df["Close"].iloc[-1]), 2)
+
+            # ── Fibonacci Strategy ──
+            if "fibo" in strategies_to_run:
+                fibo = find_3_leg_fibo_short(df)
+                if fibo and fibo[0] is not None:
+                    entry = round(float(fibo[0]), 2)
+                    sl = round(float(fibo[1]), 2)
+                    tp = round(float(fibo[2]), 2)
+                    dist = round(((entry - close) / close) * 100, 2) if close else 0
+                    if close >= entry:
+                        leg = "Leg 3 — At Entry Zone 🎯"
+                    elif fibo[7]:
+                        leg = "Leg 2 — Pullback Active ↩️"
+                    else:
+                        leg = "Leg 1 — Building 🔨"
+                    results.append(
+                        {
+                            "ticker": ticker,
+                            "strategy": "Fibonacci",
+                            "close": close,
+                            "entry": entry,
+                            "stop_loss": sl,
+                            "target": tp,
+                            "dist_pct": dist,
+                            "leg_status": leg,
+                            "type": "LONG 📈" if entry > sl else "SHORT 📉",
+                        }
+                    )
+
+            # ── Qullamaggie Breakout Strategy ──
+            if "qullamaggie" in strategies_to_run:
+                last = df.iloc[-1]
+                ema10, ema20, ema50 = (
+                    float(last["EMA_10"]),
+                    float(last["EMA_20"]),
+                    float(last["EMA_50"]),
+                )
+                vol_sma = float(last["Vol_SMA_30"])
+                if close > 5 and vol_sma > 500000 and close > ema10 > ema20 > ema50:
+                    entry = round(float(df["High"].tail(10).max()), 2)
+                    sl = round(ema20, 2)
+                    if entry > sl:
+                        risk = entry - sl
+                        tp = round(entry + 3 * risk, 2)
+                        dist = round(((entry - close) / close) * 100, 2) if close else 0
+                        if close >= entry * 0.995:
+                            leg = "Breakout Active 🚀"
+                        elif abs(dist) <= 5:
+                            leg = "Near Breakout 🔥"
+                        else:
+                            leg = "Building Base ⏳"
+                        results.append(
+                            {
+                                "ticker": ticker,
+                                "strategy": "Qullamaggie",
+                                "close": close,
+                                "entry": entry,
+                                "stop_loss": sl,
+                                "target": tp,
+                                "dist_pct": dist,
+                                "leg_status": leg,
+                                "type": "LONG 📈",
+                            }
+                        )
+
+            # ── Nick Shawn S/R Strategy ──
+            if "nick_shawn" in strategies_to_run:
+                recent_50 = df.tail(50)
+                support = float(recent_50["Low"].min())
+                resistance = float(recent_50["High"].max())
+                if close <= support * 1.015 and close >= support:
+                    sl = round(support * 0.99, 2)
+                    tp = round(close + (close - sl), 2)
+                    dist = round(((close - support) / support) * 100, 2)
+                    leg = "At Support Zone 🟢" if dist <= 0.5 else "Near Support 🔥"
+                    results.append(
+                        {
+                            "ticker": ticker,
+                            "strategy": "Nick Shawn",
+                            "close": close,
+                            "entry": round(close, 2),
+                            "stop_loss": sl,
+                            "target": tp,
+                            "dist_pct": dist,
+                            "leg_status": leg,
+                            "type": "LONG 📈",
+                        }
+                    )
+                elif close >= resistance * 0.985 and close <= resistance:
+                    sl = round(resistance * 1.01, 2)
+                    tp = round(close - (sl - close), 2)
+                    dist = round(((resistance - close) / resistance) * 100, 2)
+                    leg = (
+                        "At Resistance Zone 🔴" if dist <= 0.5 else "Near Resistance 🔥"
+                    )
+                    results.append(
+                        {
+                            "ticker": ticker,
+                            "strategy": "Nick Shawn",
+                            "close": close,
+                            "entry": round(close, 2),
+                            "stop_loss": sl,
+                            "target": tp,
+                            "dist_pct": dist,
+                            "leg_status": leg,
+                            "type": "SHORT 📉",
+                        }
+                    )
+
+        except Exception:
+            continue
+
+    results.sort(key=lambda r: abs(r["dist_pct"]))
+    return {"count": len(results), "strategy": strategy, "results": results}
 
 
 # ── Catch-all: serve React index.html for SPA routing ────────────────
