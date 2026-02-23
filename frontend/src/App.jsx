@@ -6,7 +6,7 @@ import ScannerTable from './components/ScannerTable';
 import MarketScanPanel from './components/MarketScanPanel';
 import './index.css';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
 
 const STRATEGY_MAP = {
     'none': 'qullamaggie',

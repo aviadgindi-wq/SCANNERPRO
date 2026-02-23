@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Radar, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
 
 const STRATEGIES = [
     { value: 'all', label: '🌐 All Strategies' },
