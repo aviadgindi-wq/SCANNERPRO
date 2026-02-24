@@ -157,17 +157,17 @@ function parseIndicatorInput(input) {
 
 // ── Fibo level colors ──
 const FIBO_COLORS = {
-    '0': { color: 'rgba(176,184,200,0.5)', label: '0.0', style: LineStyle.Dashed },
+    '0': { color: '#e8a020', label: '0.0', style: LineStyle.Dashed },
     '0.382': { color: '#e8a020', label: '0.382', style: LineStyle.Dashed },
-    '0.5': { color: 'rgba(176,184,200,0.5)', label: '0.5', style: LineStyle.Dashed },
+    '0.5': { color: '#e8a020', label: '0.5', style: LineStyle.Dashed },
     '0.618': { color: '#FFD700', label: '0.618', style: LineStyle.Solid },
-    '1': { color: 'rgba(176,184,200,0.5)', label: '1.0', style: LineStyle.Dashed },
+    '1': { color: '#e8a020', label: '1.0', style: LineStyle.Dashed },
 };
 
 // ─────────────────────────────────────────────────────────────────────
 //  drawFiboOverlays — uses addLineSeries so everything can be removed
 // ─────────────────────────────────────────────────────────────────────
-function drawFiboOverlays(chart, candleSeries, data, overlayLinesRef) {
+function drawFiboOverlays(chart, candleSeries, data, overlayLinesRef, { showFibo, showSR }) {
     overlayLinesRef.current.forEach(s => {
         try { chart.removeSeries(s); } catch (_) { }
     });
@@ -193,9 +193,9 @@ function drawFiboOverlays(chart, candleSeries, data, overlayLinesRef) {
         return s;
     };
 
-    // Fibonacci levels
-    if (data.overlays?.fibo?.levels) {
-        const lvls = data.overlays.fibo.levels;
+    // 1. Fibonacci levels (Gold/Orange)
+    if (showFibo && data.overlays?.fib_levels) {
+        const lvls = data.overlays.fib_levels;
         for (const [key, price] of Object.entries(lvls)) {
             const cfg = FIBO_COLORS[key];
             if (cfg && price != null) {
@@ -204,9 +204,16 @@ function drawFiboOverlays(chart, candleSeries, data, overlayLinesRef) {
         }
     }
 
-    // Zigzag legs (magenta)
-    if (data.overlays?.fibo?.legs) {
-        const legs = data.overlays.fibo.legs;
+    // 2. Support / Resistance (Green/Red)
+    if (showSR && data.overlays?.sr_levels) {
+        const sr = data.overlays.sr_levels;
+        if (sr.support != null) addHorizontalLine(sr.support, 'Support', '#4CAF50', LineStyle.Dashed, 1);
+        if (sr.resistance != null) addHorizontalLine(sr.resistance, 'Resistance', '#F44336', LineStyle.Dashed, 1);
+    }
+
+    // Optional: Zigzag legs (magenta) and Breakouts if they exist in the strategy
+    if (showFibo && data.overlays?.fibo_legs) {
+        const legs = data.overlays.fibo_legs;
         const points = [
             legs.leg1_start && { time: ensureUnixSeconds(legs.leg1_start.date), value: legs.leg1_start.price },
             legs.leg1_end && { time: ensureUnixSeconds(legs.leg1_end.date), value: legs.leg1_end.price },
@@ -229,35 +236,13 @@ function drawFiboOverlays(chart, candleSeries, data, overlayLinesRef) {
         }
     }
 
-    // Entry (Blue), Stop (Red), Target (Green)
+    // Entry (Blue), Stop (Red), Target (Green) for signals
     if (data.overlays?.predictions) {
         const p = data.overlays.predictions;
         if (p.entry != null) addHorizontalLine(p.entry, 'Entry', '#0088ff', LineStyle.Solid, 2);
         if (p.stop_loss != null) addHorizontalLine(p.stop_loss, 'Stop', '#ef5350', LineStyle.Solid, 2);
         if (p.target != null) addHorizontalLine(p.target, 'Target', '#00C851', LineStyle.Solid, 2);
     }
-
-    // Nick Shawn S/R zones
-    if (data.overlays?.nick_shawn) {
-        const ns = data.overlays.nick_shawn;
-        if (ns.support_zone) {
-            addHorizontalLine(ns.support_zone.low, 'S-Low', '#4CAF50', LineStyle.Dashed, 1);
-            addHorizontalLine(ns.support_zone.high, 'S-High', '#4CAF50', LineStyle.Dashed, 1);
-        }
-        if (ns.resistance_zone) {
-            addHorizontalLine(ns.resistance_zone.low, 'R-Low', '#F44336', LineStyle.Dashed, 1);
-            addHorizontalLine(ns.resistance_zone.high, 'R-High', '#F44336', LineStyle.Dashed, 1);
-        }
-    }
-
-    // Qullamaggie breakout
-    if (data.overlays?.qullamaggie?.breakout_level) {
-        addHorizontalLine(data.overlays.qullamaggie.breakout_level, 'Breakout', '#FFD700', LineStyle.Solid, 2);
-    }
-
-    // Support / Resistance
-    if (data.overlays?.support != null) addHorizontalLine(data.overlays.support, 'Support', '#4CAF50', LineStyle.Dashed, 1);
-    if (data.overlays?.resistance != null) addHorizontalLine(data.overlays.resistance, 'Resistance', '#F44336', LineStyle.Dashed, 1);
 
     // Markers
     if (candleSeries && data.overlays?.predictions) {
@@ -271,7 +256,7 @@ function drawFiboOverlays(chart, candleSeries, data, overlayLinesRef) {
                 position: isLong ? 'belowBar' : 'aboveBar',
                 color: '#0088ff',
                 shape: isLong ? 'arrowUp' : 'arrowDown',
-                text: isLong ? `▲ LONG Entry ${p.entry.toFixed(2)}` : `▼ SHORT Entry ${p.entry.toFixed(2)}`,
+                text: isLong ? `▲ LONG Entry ${Number(p.entry).toFixed(2)}` : `▼ SHORT Entry ${Number(p.entry).toFixed(2)}`,
                 size: 1,
             });
         }
@@ -339,7 +324,7 @@ function drawIndicators(chart, ohlc, activeIndicators, indicatorSeriesRef) {
                     crosshairMarkerVisible: false,
                     title: ind.label,
                     priceScaleId: 'rsi',
-                    priceFormat: { type: 'custom', formatter: v => v.toFixed(1) },
+                    priceFormat: { type: 'custom', formatter: v => v != null && !isNaN(v) ? Number(v).toFixed(1) : '' },
                 });
                 s.setData(lineData);
                 indicatorSeriesRef.current.push(s);
@@ -400,7 +385,7 @@ function drawIndicators(chart, ohlc, activeIndicators, indicatorSeriesRef) {
 // ─────────────────────────────────────────────────────────────────────
 //  ProChart Component
 // ─────────────────────────────────────────────────────────────────────
-const ProChart = ({ data, ticker, interval = '1d', showFibo, setShowFibo }) => {
+const ProChart = ({ data, ticker, interval = '1d', showFibo, setShowFibo, showSR, setShowSR }) => {
     const chartContainerRef = useRef(null);
     const chartRef = useRef(null);
     const candleSeriesRef = useRef(null);
@@ -530,15 +515,7 @@ const ProChart = ({ data, ticker, interval = '1d', showFibo, setShowFibo }) => {
         }
 
         // Draw Fibo overlays
-        if (showFibo && data) {
-            drawFiboOverlays(chart, candleSeries, { ...data, ohlc }, overlayLinesRef);
-        } else {
-            // Instant removal when toggled OFF
-            overlayLinesRef.current.forEach(s => {
-                try { chart.removeSeries(s); } catch (_) { }
-            });
-            overlayLinesRef.current = [];
-        }
+        drawFiboOverlays(chart, candleSeries, { ...data, ohlc }, overlayLinesRef, { showFibo, showSR });
 
         // Draw indicators with current selection
         drawIndicators(chart, ohlc, activeIndicators, indicatorSeriesRef);
@@ -547,7 +524,7 @@ const ProChart = ({ data, ticker, interval = '1d', showFibo, setShowFibo }) => {
         requestAnimationFrame(() => {
             chartRef.current?.timeScale().scrollToRealTime();
         });
-    }, [data, showFibo]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [data, showFibo, showSR]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Redraw indicators when activeIndicators changes (without touching candles) ──
     useEffect(() => {
@@ -604,29 +581,17 @@ const ProChart = ({ data, ticker, interval = '1d', showFibo, setShowFibo }) => {
                 {/* Fibonacci Toggle */}
                 <button
                     onClick={() => setShowFibo(!showFibo)}
-                    style={{
-                        padding: '3px 10px',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        borderRadius: '4px',
-                        border: 'none',
-                        background: showFibo ? '#2563eb' : '#3a3f4b',
-                        color: showFibo ? '#fff' : '#8b929e',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
-                        marginLeft: '4px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                    }}
+                    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${showFibo ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-300'}`}
                 >
-                    <span style={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        background: showFibo ? '#10b981' : '#6b7280'
-                    }} />
                     FIBO
+                </button>
+
+                {/* S/R Toggle */}
+                <button
+                    onClick={() => setShowSR(!showSR)}
+                    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${showSR ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                >
+                    S/R
                 </button>
 
                 {/* Custom indicator input */}

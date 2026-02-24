@@ -50,7 +50,8 @@ function App() {
     const [tableMinimized, setTableMinimized] = useState(false);
     const [filterMarket, setFilterMarket] = useState('all');
     const [filterSignal, setFilterSignal] = useState('all');
-    const [showFibo, setShowFibo] = useState(true);
+    const [showFibo, setShowFibo] = useState(false);
+    const [showSR, setShowSR] = useState(false);
 
     // ── Load chart from backend ──
     const loadChart = async (symbol, intv) => {
@@ -207,6 +208,8 @@ function App() {
                             ticker={ticker}
                             showFibo={showFibo}
                             setShowFibo={setShowFibo}
+                            showSR={showSR}
+                            setShowSR={setShowSR}
                         />
 
                         {/* Overlay loading/error states on top of the chart */}

@@ -99,7 +99,7 @@ const ScannerTable = ({ results, selectedTicker, onSelectTicker }) => {
                                     onClick={() => onSelectTicker(r.ticker)}>
                                     <td className="ticker-cell">{r.ticker}</td>
                                     <td className="price-cell">
-                                        {r.price > 0 ? `$${r.price.toFixed(2)}` : <span className="placeholder-text">$0.00</span>}
+                                        {Number(r.price) > 0 ? `$${Number(r.price).toFixed(2)}` : <span className="placeholder-text">$0.00</span>}
                                     </td>
                                     <td style={{
                                         color: r.side && r.side !== 'NEUTRAL' ? SIDE_COLORS[r.side] : '#8b949e',
@@ -119,7 +119,7 @@ const ScannerTable = ({ results, selectedTicker, onSelectTicker }) => {
                                         color: distColor,
                                         fontWeight: hasData && Math.abs(dist) < 1 ? 700 : 400
                                     }}>
-                                        {r.price === 0 ? '—' : (dist > 0 ? `+${dist.toFixed(2)}%` : `${dist.toFixed(2)}%`)}
+                                        {Number(r.price) === 0 ? '—' : (Number(dist) > 0 ? `+${Number(dist).toFixed(2)}%` : `${Number(dist).toFixed(2)}%`)}
                                     </td>
                                     <td className="winrate-cell">{r.win_rate}</td>
                                 </tr>
